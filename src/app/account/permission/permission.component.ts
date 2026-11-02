@@ -97,6 +97,23 @@ export class PermissionComponent implements OnInit, OnDestroy {
   selectedGroupId: string | null = null;
   error: string = '';
   navigator = navigator; // For template access
+  readonly userGuides = [
+    {
+      label: 'คู่มือการใช้งานระบบสินทรัพย์',
+      fileName: 'Asset.pdf',
+      url: `${environment.EMO_API}PDF_GUIDE/Asset.pdf`
+    },
+    {
+      label: 'คู่มือการใช้งานระบบงบประมาณ',
+      fileName: 'Budget.pdf',
+      url: `${environment.EMO_API}PDF_GUIDE/Budget.pdf`
+    },
+    {
+      label: 'คู่มือการใช้งานระบบการเงิน',
+      fileName: 'Finance.pdf',
+      url: `${environment.EMO_API}PDF_GUIDE/Finance.pdf`
+    }
+  ];
 
   private onlineHandler = () => {
     if (this.error.includes('ไม่มีการเชื่อมต่ออินเทอร์เน็ต')) {

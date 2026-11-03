@@ -464,7 +464,7 @@ export class ProjectPlanningComponent implements OnInit, OnChanges {
           times: i.Times,
           people: i.People,
           rate: i.Rate,
-          total: i.Total,
+          total: this.toSaveNumber(i.Total),
           input3: i.input3,
           input4: i.input4,
           input5: i.input5
@@ -614,6 +614,21 @@ export class ProjectPlanningComponent implements OnInit, OnChanges {
     return `/Date(${timestamp})/`;
   }
   activities: any
+  private mapOtherExpensesForSave(items: any[] | null | undefined): any[] {
+    return (items || []).map((item: any) => ({
+      ...item,
+      Project_Item_Id: Number(item?.Project_Item_Id ?? item?.id ?? 0) || 0,
+      Expense_Name: item?.Expense_Name ?? item?.name ?? '',
+      Total: this.toSaveNumber(item?.total ?? item?.Total),
+      Times: this.toSaveNumber(item?.times ?? item?.Times),
+      People: this.toSaveNumber(item?.people ?? item?.People),
+      Rate: this.toSaveNumber(item?.rate ?? item?.Rate),
+      input3: this.toSaveNumber(item?.input3),
+      input4: this.toSaveNumber(item?.input4),
+      input5: this.toSaveNumber(item?.input5)
+    }));
+  }
+
   mapActivities() {
 
     const activities = [...(this.project_planing.activities || [])]
@@ -634,7 +649,7 @@ export class ProjectPlanningComponent implements OnInit, OnChanges {
 
       Months: act.quarters.flatMap((q: any) => q.months),
 
-      OtherExpenses: act.otherExpenses || [],
+      OtherExpenses: this.mapOtherExpensesForSave(act.otherExpenses),
 
       SubActivities: [...(act.SubActivities || [])]
         .sort((a: any, b: any) => (a.Seq ?? 0) - (b.Seq ?? 0))
@@ -651,7 +666,7 @@ export class ProjectPlanningComponent implements OnInit, OnChanges {
 
           Months: sub.quarters.flatMap((q: any) => q.months),
 
-          OtherExpenses: sub.otherExpenses || []
+          OtherExpenses: this.mapOtherExpensesForSave(sub.otherExpenses)
 
         }))
 

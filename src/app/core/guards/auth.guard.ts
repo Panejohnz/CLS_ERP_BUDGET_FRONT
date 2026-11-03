@@ -28,7 +28,6 @@ export class AuthGuard implements CanActivate {
         route: ActivatedRouteSnapshot,
         state: RouterStateSnapshot
     ): Promise<boolean> {
-        debugger
         // Allow local development without requiring a Management session.
         if (this.isLocalDevelopmentHost()) {
             return true;
@@ -42,7 +41,7 @@ export class AuthGuard implements CanActivate {
                 const response: any = await firstValueFrom(
                     this.http.post(
                         environment.CLS_MANAGEMENT + 'GET_DATA/GetUserSession',
-                        { token: localStorage.getItem('token') || localStorage.getItem('userToken') || localStorage.getItem('Token')}
+                        { token: this.getStoredToken() }
                     )
                 );
 
@@ -180,6 +179,29 @@ export class AuthGuard implements CanActivate {
 
     private redirectToLogin(): void {
         this.router.navigate(['/auth/access-required']);
+    }
+
+    /**
+     * Management stores the selected permission as `userSession`.  On a new
+     * application load, `token`/`userToken` may not have been written yet,
+     * even though the user has just completed login.  Always read the token
+     * from that session as a fallback before asking Management to validate it.
+     */
+    private getStoredToken(): string | null {
+        const token = localStorage.getItem('token')
+            || localStorage.getItem('userToken')
+            || localStorage.getItem('Token')
+            || localStorage.getItem('authToken');
+
+        if (token) {
+            return token;
+        }
+
+        try {
+            return this.sessionService.getUserSession()?.token || null;
+        } catch {
+            return null;
+        }
     }
 
     private isLocalDevelopmentHost(): boolean {

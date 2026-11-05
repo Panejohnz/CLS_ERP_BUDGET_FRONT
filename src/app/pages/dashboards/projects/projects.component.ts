@@ -22,6 +22,7 @@ export class ProjectsComponent implements OnInit {
   currentYear = 0;
   selectedDepartmentId = 0;
   private dashboardLoadVersion = 0;
+  private readonly investmentExpenseIds = [54, 55];
 
   chartNotes = {
     pieBudgetType: '',
@@ -363,15 +364,20 @@ getDashboard() {
     const totalburse = this.sum(data, 'Sum_Withdraw');
     const totalRemaining = allocatedBudget - totalburse;
 
-    const recurringAdjust = this.sumByBudgetTypeIds(data, 'Adjust', [1, 2, 4, 5]);
-    const recurringBudget = this.sumByBudgetTypeIds(data, 'Total_Plan', [1, 2, 4, 5]);
-    const recurringburse = this.sumByBudgetTypeIds(data, 'Sum_Withdraw', [1, 2, 4, 5]);
+    // ค่าใช้จ่าย 54, 55 ต้องแสดงในรายจ่ายลงทุน แม้ Budget Type เดิม
+    // จะถูกจัดเป็นรายจ่ายประจำ
+    const isRecurring = (row: any) => this.isRecurringDashboardRow(row);
+    const isInvestment = (row: any) => this.isInvestmentDashboardRow(row);
+
+    const recurringAdjust = this.sumByCondition(data, 'Adjust', isRecurring);
+    const recurringBudget = this.sumByCondition(data, 'Total_Plan', isRecurring);
+    const recurringburse = this.sumByCondition(data, 'Sum_Withdraw', isRecurring);
     const recurringAllocated = recurringAdjust !== 0 ? recurringAdjust : recurringBudget;
     const recurringRemaining = recurringAllocated - recurringburse;
 
-    const investmentAdjust = this.sumByBudgetTypeIds(data, 'Adjust', [3]);
-    const investmentBudget = this.sumByBudgetTypeIds(data, 'Total_Plan', [3]);
-    const investmentburse = this.sumByBudgetTypeIds(data, 'Sum_Withdraw', [3]);
+    const investmentAdjust = this.sumByCondition(data, 'Adjust', isInvestment);
+    const investmentBudget = this.sumByCondition(data, 'Total_Plan', isInvestment);
+    const investmentburse = this.sumByCondition(data, 'Sum_Withdraw', isInvestment);
     const investmentAllocated = investmentAdjust !== 0 ? investmentAdjust : investmentBudget;
     const investmentRemaining = investmentAllocated - investmentburse;
 
@@ -412,7 +418,9 @@ getDashboard() {
     this.bindBarBudgetType(data);
     this.bindPlanChart(data);
     this.bindDepartmentChart(data);
-    this.bindQuarterBarChart(data);
+    // กราฟเบิกจ่ายรายไตรมาสต้องใช้ฐานเดียวกับการ์ด "รายจ่ายประจำ"
+    // เพื่อให้ยอดเบิกจ่ายรวมตรงกัน
+    this.bindQuarterBarChart(data.filter((row: any) => this.isRecurringDashboardRow(row)));
     this.bindQuarterPieChart(data);
   }
 
@@ -983,6 +991,8 @@ bindDepartmentChart(data: any[]) {
 
   const map = new Map<string, {
     label: string;
+    departmentType: any;
+    departmentCostCode: any;
     plan: number;
     adjust: number;
     withdraw: number;
@@ -1003,6 +1013,8 @@ bindDepartmentChart(data: any[]) {
     if (!map.has(key)) {
       map.set(key, {
         label,
+        departmentType: x.Department_Type,
+        departmentCostCode: x.Department_Cost_Code,
         plan: 0,
         adjust: 0,
         withdraw: 0,
@@ -1018,8 +1030,12 @@ bindDepartmentChart(data: any[]) {
     row.count += 1;
   });
 
-  const labels = Array.from(map.values()).map(row => row.label);
-  const rows = Array.from(map.values());
+  const rows = Array.from(map.values()).sort((left, right) =>
+    this.compareDepartmentOrder(left.departmentType, right.departmentType)
+    || this.compareDepartmentOrder(left.departmentCostCode, right.departmentCostCode)
+    || left.label.localeCompare(right.label, 'th')
+  );
+  const labels = rows.map(row => row.label);
 
   // ==========================
   // เป้าหมายตามไตรมาสปัจจุบัน
@@ -1417,6 +1433,48 @@ bindQuarterBarChart(data: any[]) {
   getBudgetTypeId(row: any): number {
     const value = row?.Budget_Type_Id ?? row?.Fk_Budget_Type ?? row?.Budget_Type ?? row?.BudgetType_Id;
     return Number(value || 0);
+  }
+
+  getExpenseId(row: any): number {
+    const value = row?.Expense_Id
+      ?? row?.Fk_Expense_List
+      ?? row?.Expense_List_Id
+      ?? row?.FK_Expense_List
+      ?? row?.Fk_Expense_Id;
+    return Number(value || 0);
+  }
+
+  private isRecurringDashboardRow(row: any): boolean {
+    return [1, 2, 4, 5].includes(this.getBudgetTypeId(row))
+      && !this.investmentExpenseIds.includes(this.getExpenseId(row));
+  }
+
+  private isInvestmentDashboardRow(row: any): boolean {
+    return this.getBudgetTypeId(row) === 3
+      || this.investmentExpenseIds.includes(this.getExpenseId(row));
+  }
+
+  sumByCondition(data: any[], field: string, condition: (row: any) => boolean): number {
+    return data
+      .filter(condition)
+      .reduce((sum: number, row: any) => sum + Number(row[field] || 0), 0);
+  }
+
+  private compareDepartmentOrder(left: any, right: any): number {
+    const leftValue = String(left ?? '').trim();
+    const rightValue = String(right ?? '').trim();
+
+    if (!leftValue && !rightValue) return 0;
+    if (!leftValue) return 1;
+    if (!rightValue) return -1;
+
+    const leftNumber = Number(leftValue);
+    const rightNumber = Number(rightValue);
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+      return leftNumber - rightNumber;
+    }
+
+    return leftValue.localeCompare(rightValue, 'th', { numeric: true });
   }
 
   sumByBudgetTypeIds(data: any[], field: string, ids: number[]): number {

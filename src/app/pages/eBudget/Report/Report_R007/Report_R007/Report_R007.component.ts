@@ -37,21 +37,21 @@ export class Report_R007Component implements OnInit {
     this.token = this.authService.getStoredToken() || '';
 
     this.route.queryParams.subscribe(params => {
-      const query = new URLSearchParams();
-      query.set('token', this.token);
+      // Token ถูก encode มาจากระบบกลางแล้ว จึงต่อค่าเดิมโดยไม่ encode ซ้ำ
+      const query: string[] = [`Token=${this.token}`];
 
       if (params['BgYear']) {
-        query.set('BgYear', params['BgYear']);
+        query.push(`BgYear=${params['BgYear']}`);
       }
       if (params['Project_Id']) {
-        query.set('Project_Id', params['Project_Id']);
+        query.push(`Project_Id=${params['Project_Id']}`);
       }
       if (params['Project_Type']) {
-        query.set('Project_Type', params['Project_Type']);
+        query.push(`Project_Type=${params['Project_Type']}`);
       }
 
-      this.rawReportUrl = query.toString()
-        ? `${this.baseReportUrl}?${query.toString()}`
+      this.rawReportUrl = query.length
+        ? `${this.baseReportUrl}?${query.join('&')}`
         : this.baseReportUrl;
 
       this.reportUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.rawReportUrl);

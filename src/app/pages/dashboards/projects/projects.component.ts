@@ -1359,23 +1359,26 @@ bindQuarterBarChart(data: any[]) {
     : [];
 
   // ยอดรวมบนการ์ดใช้ Sum_Withdraw แต่ยอดรายไตรมาสมาจากข้อมูลรายเดือน
-  // ซึ่งบางรายการจาก API รวมไม่เท่ากัน จึงปรับผลต่างลงในไตรมาสล่าสุดที่มี
-  // รายการ เพื่อให้ผลรวมกราฟตรงกับยอดเบิกจ่ายภาพรวมเสมอ
+  // บางครั้ง API มีข้อมูลของไตรมาสอนาคตติดมาด้วย จึงใช้เฉพาะถึงไตรมาส
+  // ปัจจุบัน และให้ไตรมาสปัจจุบันรับยอดคงเหลือจากยอดรวมโดยตรง
   if (withdrawData.length > 0) {
     const totalWithdraw = this.sum(data, 'Sum_Withdraw');
-    const quarterWithdrawTotal = withdrawData.reduce((sum, amount) => sum + Number(amount || 0), 0);
-    const difference = totalWithdraw - quarterWithdrawTotal;
+    const calendarMonth = new Date().getMonth() + 1;
+    const fiscalMonth = calendarMonth >= 10 ? calendarMonth - 9 : calendarMonth + 3;
+    const currentQuarterIndex = Math.ceil(fiscalMonth / 3) - 1;
+    const completedQuarterTotal = withdrawData
+      .slice(0, currentQuarterIndex)
+      .reduce((sum, amount) => sum + Number(amount || 0), 0);
 
-    if (Math.abs(difference) > 0.005) {
-      const lastReportedQuarter = withdrawData.reduce(
-        (lastIndex, amount, index) => Number(amount || 0) !== 0 ? index : lastIndex,
-        -1
-      );
-      const fiscalQuarter = Math.ceil((((new Date().getMonth() + 1) + 2) % 12 + 1) / 3) - 1;
-      const targetQuarter = lastReportedQuarter >= 0 ? lastReportedQuarter : fiscalQuarter;
-      withdrawData = [...withdrawData];
-      withdrawData[targetQuarter] = Number(withdrawData[targetQuarter] || 0) + difference;
-    }
+    withdrawData = withdrawData.map((amount, index) => {
+      if (index > currentQuarterIndex) {
+        return 0;
+      }
+      if (index === currentQuarterIndex) {
+        return totalWithdraw - completedQuarterTotal;
+      }
+      return Number(amount || 0);
+    });
   }
 
   // ==========================

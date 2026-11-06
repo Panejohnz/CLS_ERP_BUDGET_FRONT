@@ -244,10 +244,12 @@ getDashboard() {
             ? response.List_Dashboard_Check[0]
             : response.List_Dashboard_Check || null;
 
-      this.loadDashboardUsage(this.dashboardData, loadVersion, () => {
-        if (loadVersion === this.dashboardLoadVersion) {
-          this.bindDashboard();
-        }
+      this.loadDashboardDepartmentOrder(this.dashboardData, loadVersion, () => {
+        this.loadDashboardUsage(this.dashboardData, loadVersion, () => {
+          if (loadVersion === this.dashboardLoadVersion) {
+            this.bindDashboard();
+          }
+        });
       });
     },
 
@@ -261,6 +263,45 @@ getDashboard() {
     }
   });
 }
+
+  /** เติม Department_Type / Department_Cost_Code จาก master เพราะข้อมูล
+   * Dashboard บางรายการไม่มีสอง field นี้ติดมาด้วย */
+  private loadDashboardDepartmentOrder(
+    dashboardRows: any[],
+    loadVersion: number,
+    complete: () => void
+  ): void {
+    this.servicebud.GatewayGetData({
+      FUNC_CODE: 'FUNC-GET_Mas_Search',
+      BgYear: this.currentYear
+    }).pipe(catchError(() => of(null))).subscribe((response: any) => {
+      if (loadVersion !== this.dashboardLoadVersion) {
+        return;
+      }
+
+      const departments = Array.isArray(response?.Mas_Department_Lists)
+        ? response.Mas_Department_Lists
+        : [];
+      const departmentById = new Map<string, any>(
+        departments.map((department: any) => [String(department?.Department_Id), department])
+      );
+
+      this.dashboardData = (dashboardRows || []).map((row: any) => {
+        const departmentId = row?.Department_Id ?? row?.Fk_Department_Id;
+        const department = departmentById.get(String(departmentId));
+
+        return {
+          ...row,
+          Department_Type: this.getDepartmentField(row, 'Department_Type')
+            ?? this.getDepartmentField(department, 'Department_Type'),
+          Department_Cost_Code: this.getDepartmentField(row, 'Department_Cost_Code')
+            ?? this.getDepartmentField(department, 'Department_Cost_Code')
+        };
+      });
+
+      complete();
+    });
+  }
 
   private loadDashboardUsage(
     dashboardRows: any[],
@@ -418,9 +459,9 @@ getDashboard() {
     this.bindBarBudgetType(data);
     this.bindPlanChart(data);
     this.bindDepartmentChart(data);
-    // กราฟเบิกจ่ายรายไตรมาสต้องใช้ฐานเดียวกับการ์ด "รายจ่ายประจำ"
-    // เพื่อให้ยอดเบิกจ่ายรวมตรงกัน
-    this.bindQuarterBarChart(data.filter((row: any) => this.isRecurringDashboardRow(row)));
+    // กราฟชื่อ "ภาพรวมงบประมาณ" จึงต้องใช้ข้อมูลทุกประเภทงบ
+    // เพื่อให้ผลรวมยอดเบิกจ่ายทั้ง 4 ไตรมาสตรงกับการ์ดภาพรวมงบประมาณ
+    this.bindQuarterBarChart(data);
     this.bindQuarterPieChart(data);
   }
 
@@ -1013,8 +1054,8 @@ bindDepartmentChart(data: any[]) {
     if (!map.has(key)) {
       map.set(key, {
         label,
-        departmentType: x.Department_Type,
-        departmentCostCode: x.Department_Cost_Code,
+        departmentType: this.getDepartmentField(x, 'Department_Type'),
+        departmentCostCode: this.getDepartmentField(x, 'Department_Cost_Code'),
         plan: 0,
         adjust: 0,
         withdraw: 0,
@@ -1475,6 +1516,20 @@ bindQuarterBarChart(data: any[]) {
     }
 
     return leftValue.localeCompare(rightValue, 'th', { numeric: true });
+  }
+
+  private getDepartmentField(item: any, field: string): any {
+    if (!item) return undefined;
+
+    const variants = [
+      field,
+      field.replace(/_/g, ''),
+      field.charAt(0).toLowerCase() + field.slice(1),
+      field.toLowerCase()
+    ];
+    return variants
+      .map(key => item[key])
+      .find(value => value !== null && value !== undefined && value !== '');
   }
 
   sumByBudgetTypeIds(data: any[], field: string, ids: number[]): number {

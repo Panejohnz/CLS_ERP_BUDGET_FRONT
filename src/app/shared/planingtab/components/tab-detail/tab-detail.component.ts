@@ -276,16 +276,18 @@ export class TabDetailComponent implements OnInit, OnChanges {
     return date;
   }
   syncProjectDetailDate() {
+    if (!this.model || !this.projectDetail) {
+      return;
+    }
 
-    this.model.Project_Detail.Start_Date =
-      this.convertToApiDate(
-        this.projectDetail.Start_Date
-      );
-
-    this.model.Project_Detail.End_Date =
-      this.convertToApiDate(
-        this.projectDetail.End_Date
-      );
+    // เขียนกลับไปที่ model ของ parent โดยตรง เพื่อให้ทุกหน้าที่ใช้ tab นี้
+    // ส่งวันที่ใหม่ไปกับ payload ตอนบันทึก
+    this.model.Project_Detail = {
+      ...(this.model.Project_Detail || {}),
+      Start_Date: this.convertToApiDate(this.projectDetail.Start_Date),
+      End_Date: this.convertToApiDate(this.projectDetail.End_Date)
+    };
+    this.projectDetail = this.model.Project_Detail;
   }
   async removeObjective(i: number, item: any) {
 

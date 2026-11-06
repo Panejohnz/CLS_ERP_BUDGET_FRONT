@@ -89,15 +89,37 @@ export class EbudgetService {
     }
 
     GetBudgetPlanSumUse(bgYear: number, departmentId: number, planId: number) {
-        const params = new HttpParams()
+        let params = new HttpParams()
             .set('BgYear', String(bgYear))
             .set('Dept', String(departmentId))
             .set('Plan_Id', String(planId));
+
+        const token = this.getStoredToken();
+        if (token) {
+            params = params.set('Token', token);
+        }
 
         return this.http.get<any>(
             'https://bfast.pacc.go.th/CLS_ERP_API/Finance_Api/Get_Data_Budget_Plan_Sum_Use_By_BgYear_Dept',
             { params }
         );
+    }
+
+    private getStoredToken(): string | null {
+        const token = localStorage.getItem('token')
+            || localStorage.getItem('userToken')
+            || localStorage.getItem('Token')
+            || localStorage.getItem('authToken');
+
+        if (token) {
+            return token;
+        }
+
+        try {
+            return JSON.parse(localStorage.getItem('userSession') || '{}')?.token || null;
+        } catch {
+            return null;
+        }
     }
 
     DeleteBudgetRequestDetailItem(requestItemId: any) {

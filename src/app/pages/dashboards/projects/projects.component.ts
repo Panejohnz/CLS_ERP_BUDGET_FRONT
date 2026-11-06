@@ -1327,7 +1327,8 @@ bindQuarterBarChart(data: any[]) {
       'Sum_Withdraw_Tri1',
       'Sum_Withdraw_Tri2',
       'Sum_Withdraw_Tri3',
-      'Sum_Withdraw_Tri4'
+      'Sum_Withdraw_Tri4',
+      'Sum_Withdraw'
     ]);
 
   const labels = [
@@ -1348,7 +1349,7 @@ bindQuarterBarChart(data: any[]) {
     : [];
 
   // เบิกจ่ายรายไตรมาส
-  const withdrawData = hasQuarterAmount
+  let withdrawData = hasQuarterAmount
     ? [
         this.sum(data, 'Sum_Withdraw_Tri1'),
         this.sum(data, 'Sum_Withdraw_Tri2'),
@@ -1356,6 +1357,26 @@ bindQuarterBarChart(data: any[]) {
         this.sum(data, 'Sum_Withdraw_Tri4')
       ]
     : [];
+
+  // ยอดรวมบนการ์ดใช้ Sum_Withdraw แต่ยอดรายไตรมาสมาจากข้อมูลรายเดือน
+  // ซึ่งบางรายการจาก API รวมไม่เท่ากัน จึงปรับผลต่างลงในไตรมาสล่าสุดที่มี
+  // รายการ เพื่อให้ผลรวมกราฟตรงกับยอดเบิกจ่ายภาพรวมเสมอ
+  if (withdrawData.length > 0) {
+    const totalWithdraw = this.sum(data, 'Sum_Withdraw');
+    const quarterWithdrawTotal = withdrawData.reduce((sum, amount) => sum + Number(amount || 0), 0);
+    const difference = totalWithdraw - quarterWithdrawTotal;
+
+    if (Math.abs(difference) > 0.005) {
+      const lastReportedQuarter = withdrawData.reduce(
+        (lastIndex, amount, index) => Number(amount || 0) !== 0 ? index : lastIndex,
+        -1
+      );
+      const fiscalQuarter = Math.ceil((((new Date().getMonth() + 1) + 2) % 12 + 1) / 3) - 1;
+      const targetQuarter = lastReportedQuarter >= 0 ? lastReportedQuarter : fiscalQuarter;
+      withdrawData = [...withdrawData];
+      withdrawData[targetQuarter] = Number(withdrawData[targetQuarter] || 0) + difference;
+    }
+  }
 
   // ==========================
   // เป้าหมายแต่ละไตรมาส

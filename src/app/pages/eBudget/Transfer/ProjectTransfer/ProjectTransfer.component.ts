@@ -100,9 +100,12 @@ export class ProjectTransferComponent
   toPlans: any[] = [];
   fromPlanDetails: any[] = [];
   fromPlanDetailsLoading = false;
+  toPlanDetails: any[] = [];
+  toPlanDetailsLoading = false;
   expenseLists: any[] = [];
   expenseListsLoaded = false;
   showFromPlanDetail = false;
+  showToPlanDetail = false;
   currentYear: any;
   readonly pageSize = 30;
   pagination = { page: 1 };
@@ -279,6 +282,10 @@ export class ProjectTransferComponent
         Number(row.From_Plan_Detail_Item_Id || row.From_Plan_Item_Id || 0) || null,
       From_Plan_Detail_Name:
         row.From_Plan_Detail_Name || row.From_Plan_Item_Name || '',
+      To_Plan_Detail_Item_Id:
+        Number(row.To_Plan_Detail_Item_Id || row.To_Plan_Item_Id || 0) || null,
+      To_Plan_Detail_Name:
+        row.To_Plan_Detail_Name || row.To_Plan_Item_Name || '',
       Plan_Id:
         Number(row.Plan_Id),
       Transfer_Date:
@@ -474,10 +481,12 @@ export class ProjectTransferComponent
       this.form.From_Plan_Detail_Name = '';
       this.form.To_Plan_Id = null;
       this.form.To_Plan_Name = '';
-      this.form.To_Plan_Id = null;
-      this.form.To_Plan_Name = '';
+      this.form.To_Plan_Detail_Item_Id = null;
+      this.form.To_Plan_Detail_Name = '';
       this.fromPlanDetails = [];
       this.showFromPlanDetail = false;
+      this.toPlanDetails = [];
+      this.showToPlanDetail = false;
     }
 
     const dep =
@@ -544,8 +553,10 @@ export class ProjectTransferComponent
       }
 
       planIds.add(planId);
+      plan.Plan_Display_Name = this.getPlanDisplayName(plan);
       return true;
     });
+    this.appendDetailNamesToDuplicateDestinationPlans();
   }
 
   onChangeFromPlan(preserveDetail = false) {
@@ -684,6 +695,57 @@ export class ProjectTransferComponent
       });
   }
 
+  private appendDetailNamesToDuplicateDestinationPlans(): void {
+    const countByName = new Map<string, number>();
+    this.toPlans.forEach((plan: any) => {
+      const name = this.getPlanDisplayName(plan);
+      countByName.set(name, (countByName.get(name) || 0) + 1);
+    });
+
+    this.toPlans
+      .filter((plan: any) =>
+        countByName.get(this.getPlanDisplayName(plan))! > 1 &&
+        !this.isProjectPlan(plan)
+      )
+      .forEach((plan: any) => {
+        const planId = Number(plan?.Plan_Id || 0);
+        if (!planId) return;
+
+        this.servicebud.GatewayGetData({
+          FUNC_CODE: 'FUNC-GET_BUDGET_PLAN_BY_ID',
+          Plan_Id: planId,
+          Request_Id: 0,
+          Project_Id: 0
+        }).subscribe({
+          next: (response: any) => {
+            const source = response?.Budget_Plan_Detail_Items;
+            const rows = Array.isArray(source) ? source : (source?.Data || []);
+            const detailNames = [...new Set(rows
+              .filter((item: any) =>
+                Number(item?.Fk_Budget_Plan || 0) === planId &&
+                item?.Active !== false && Number(item?.Active ?? 1) !== 0
+              )
+              .map((item: any) => String(item?.Expense_Detail || '').trim())
+              .filter((name: string) => !!name)
+            )];
+
+            if (!detailNames.length) return;
+
+            // Use the current list so a late response cannot restore an old
+            // destination selection after the department was changed.
+            const destinationPlan = this.toPlans.find((item: any) =>
+              Number(item?.Plan_Id) === planId
+            );
+            if (!destinationPlan) return;
+
+            destinationPlan.Plan_Display_Name =
+              `${this.getPlanDisplayName(destinationPlan)} - ${detailNames.join(', ')}`;
+            this.toPlans = [...this.toPlans];
+          }
+        });
+      });
+  }
+
   private isAdjustExpenseList(plan: any): boolean {
     const expenseId = Number(plan?.Fk_Expense_List || plan?.Fk_Expense_Id || 0);
     const expense = this.expenseLists.find((item: any) =>
@@ -691,6 +753,21 @@ export class ProjectTransferComponent
     );
     const value = expense?.Is_Adjust_List;
     return value === true || Number(value) === 1 || String(value).toLowerCase() === 'true';
+  }
+
+  // รายการครุภัณฑ์/งบลงทุนต้องเลือก "รายการย่อย" ด้วย เช่นเดียวกับ
+  // app-expense-asset-investment-form.  ใช้ Master เป็นตัวตัดสิน ไม่พึ่ง
+  // ชื่อรายการ เพราะชื่ออาจซ้ำกันได้.
+  private isInvestmentExpenseList(plan: any): boolean {
+    const expenseId = Number(plan?.Fk_Expense_List || plan?.Fk_Expense_Id || 0);
+    const expense = this.expenseLists.find((item: any) =>
+      Number(item?.Expense_Id || item?.Fk_Expense_List || 0) === expenseId
+    );
+    const expenseTypeId = Number(
+      expense?.Fk_Expense_Type_Id || expense?.Expense_Type_Id || expense?.Fk_Expense_Type || 0
+    );
+
+    return expenseTypeId === 6 || [56, 57, 58, 59, 60, 61, 62, 63].includes(expenseId);
   }
 
   private isProjectPlan(plan: any): boolean {
@@ -810,6 +887,56 @@ export class ProjectTransferComponent
     });
   }
 
+  private loadToPlanDetails(plan: any): void {
+    const planId = Number(plan?.Plan_Id || this.form?.To_Plan_Id || 0);
+    const requestId = Number(plan?.FK_Request_Id || plan?.Request_Id || 0);
+    const expenseId = Number(plan?.Fk_Expense_List || plan?.Fk_Expense_Id || 0);
+
+    if (!planId && !requestId) return;
+
+    this.toPlanDetailsLoading = true;
+    this.servicebud.GatewayGetData({
+      FUNC_CODE: planId ? 'FUNC-GET_BUDGET_PLAN_BY_ID' : 'FUNC-GET_BUDGET_REQUEST_BY_ID',
+      Plan_Id: planId,
+      Request_Id: requestId,
+      Project_Id: 0
+    }).subscribe({
+      next: (response: any) => {
+        this.toPlanDetailsLoading = false;
+        if (response?.RESULT != null) {
+          this.toPlanDetails = [];
+          return;
+        }
+
+        const source = planId ? response?.Budget_Plan_Detail_Items : response?.Budget_Request_Detail_Item;
+        const rows = Array.isArray(source) ? source : (source?.Data || []);
+        this.toPlanDetails = rows
+          .filter((detail: any) =>
+            (planId
+              ? Number(detail.Fk_Budget_Plan || detail.Plan_Id || 0) === planId
+              : Number(detail.Fk_Request_Budget || detail.Request_Id || 0) === requestId) &&
+            (!expenseId || Number(detail.Fk_Expense_Id || detail.Fk_Expense_List || 0) === expenseId) &&
+            detail.Active !== false && Number(detail.Active ?? 1) !== 0
+          )
+          .map((detail: any) => {
+            const itemId = Number(detail.Plan_Item_Id || detail.Request_Item_Id || detail.IDA || 0);
+            return {
+              ...detail,
+              Plan_Item_Id: itemId,
+              Request_Item_Id: Number(detail.Request_Item_Id || itemId || 0),
+              Expense_Detail: detail.Expense_Detail || '-',
+              Total: Number(detail.Total || detail.Sum_Amount || detail.Price || detail.Update_Amount || 0)
+            };
+          })
+          .filter((detail: any) => detail.Plan_Item_Id);
+      },
+      error: () => {
+        this.toPlanDetailsLoading = false;
+        this.toPlanDetails = [];
+      }
+    });
+  }
+
   private resolveSelectedFromPlanDetail(): void {
     if (!this.fromPlanDetails.length) {
       return;
@@ -862,6 +989,11 @@ export class ProjectTransferComponent
   }
 
   onChangeToPlan() {
+    if (!this.expenseListsLoaded) {
+      this.loadExpenseLists(() => this.onChangeToPlan());
+      return;
+    }
+
     const plan =
       this.toPlans.find(
         (x: any) =>
@@ -874,7 +1006,23 @@ export class ProjectTransferComponent
 
     this.form.To_Plan_Name =
       plan?.Project_Name || plan?.Expense_List;
+    this.form.To_Plan_Detail_Item_Id = null;
+    this.form.To_Plan_Detail_Name = '';
+    this.toPlanDetails = [];
+    this.showToPlanDetail = !this.isProjectPlan(plan) && this.isInvestmentExpenseList(plan);
 
+    if (this.showToPlanDetail) {
+      this.loadToPlanDetails(plan);
+    }
+  }
+
+  onChangeToPlanDetail(): void {
+    const detail = this.toPlanDetails.find((x: any) =>
+      Number(x.Plan_Item_Id) === Number(this.form.To_Plan_Detail_Item_Id) ||
+      Number(x.Request_Item_Id) === Number(this.form.To_Plan_Detail_Item_Id) ||
+      Number(x.IDA || 0) === Number(this.form.To_Plan_Detail_Item_Id)
+    );
+    this.form.To_Plan_Detail_Name = detail?.Expense_Detail || '';
   }
 
   save(modal?: any) {
@@ -946,6 +1094,12 @@ export class ProjectTransferComponent
         toPlan?.Expense_List
         ||
         '',
+
+      To_Plan_Detail_Item_Id:
+        this.form.To_Plan_Detail_Item_Id || 0,
+
+      To_Plan_Detail_Name:
+        this.form.To_Plan_Detail_Name || '',
 
       To_Department_Id:
         this.form.To_Department_Id || 0,
@@ -1275,6 +1429,10 @@ export class ProjectTransferComponent
       To_Plan_Id: null,
 
       To_Plan_Name: '',
+
+      To_Plan_Detail_Item_Id: null,
+
+      To_Plan_Detail_Name: '',
 
       Transfer_Description: '',
 

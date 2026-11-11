@@ -1351,7 +1351,23 @@ export class ProjectTransferComponent
           Is_Transfer: 1,
           Create_User: this.authService?.currentUserValue?.UserName || ''
         }
-        : null
+        : toPlan?.Is_Master_Expense_Option
+          ? {
+            // Plan_Id = 0 tells the backend to create a new target plan from
+            // the source plan's structure, then replace its expense list with
+            // the selected Mas_Expense_List item.
+            Plan_Id: 0,
+            Department_Id: Number(this.form.To_Department_Id),
+            Department_Name: this.form.To_Department_Name || '',
+            BgYear: Number(this.currentYear || 0),
+            Fk_Expense_List: targetExpenseId,
+            Expense_List: toPlan?.Expense_List || toPlan?.Expense_Name || '',
+            Fk_Expense_Type: Number(toPlan?.Fk_Expense_Type_Id || toPlan?.Fk_Expense_Type || 0),
+            Expense_Type: toPlan?.Expense_Type || '',
+            Is_Transfer: 1,
+            Create_User: this.authService?.currentUserValue?.UserName || ''
+          }
+          : null
 
     };
 

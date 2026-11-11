@@ -286,6 +286,10 @@ export class ProjectTransferComponent
         Number(row.To_Plan_Detail_Item_Id || row.To_Plan_Item_Id || 0) || null,
       To_Plan_Detail_Name:
         row.To_Plan_Detail_Name || row.To_Plan_Item_Name || '',
+      To_Expense_Detail_Id:
+        Number(row.To_Expense_Detail_Id || row.Fk_To_Expense_Detail_Id || 0) || null,
+      To_Plan_Detail_Other_Name:
+        row.To_Plan_Detail_Other_Name || row.To_Expense_Detail_Other_Name || '',
       Plan_Id:
         Number(row.Plan_Id),
       Transfer_Date:
@@ -305,7 +309,7 @@ export class ProjectTransferComponent
 
     this.onChangeFromPlan(true);
 
-    this.onChangeToPlan();
+    this.onChangeToPlan(true);
 
     this.modalService.open(
       modal,
@@ -490,6 +494,8 @@ export class ProjectTransferComponent
       this.form.To_Plan_Name = '';
       this.form.To_Plan_Detail_Item_Id = null;
       this.form.To_Plan_Detail_Name = '';
+      this.form.To_Expense_Detail_Id = null;
+      this.form.To_Plan_Detail_Other_Name = '';
       this.fromPlanDetails = [];
       this.showFromPlanDetail = false;
       this.toPlanDetails = [];
@@ -819,6 +825,16 @@ export class ProjectTransferComponent
     );
   }
 
+  private getSelectedToPlanDetail(): any {
+    const selectedId = Number(
+      this.form?.To_Expense_Detail_Id || this.form?.To_Plan_Detail_Item_Id || 0
+    );
+    return this.toPlanDetails.find((detail: any) =>
+      Number(detail?.Fk_Expense_Detail_Id || detail?.Plan_Item_Id || 0) === selectedId ||
+      Number(detail?.Plan_Item_Id || 0) === Number(this.form?.To_Plan_Detail_Item_Id || 0)
+    );
+  }
+
   private loadPlanBalance(plan: any): void {
     const totalPlan = Number(plan?.Total_Plan || 0);
     const departmentId = Number(this.form?.From_Department_Id || 0);
@@ -937,6 +953,13 @@ export class ProjectTransferComponent
     const requestId = Number(plan?.FK_Request_Id || plan?.Request_Id || 0);
     const expenseId = Number(plan?.Fk_Expense_List || plan?.Fk_Expense_Id || 0);
 
+    // Asset-investment expenses use the same Master detail list as
+    // app-expense-asset-investment-form, even if the target has no plan yet.
+    if ([56, 57, 58, 59, 60, 61, 62, 63].includes(expenseId)) {
+      this.loadToAssetInvestmentDetails(expenseId);
+      return;
+    }
+
     if (!planId && !requestId) return;
 
     this.toPlanDetailsLoading = true;
@@ -974,6 +997,43 @@ export class ProjectTransferComponent
             };
           })
           .filter((detail: any) => detail.Plan_Item_Id);
+        this.resolveSelectedToPlanDetail();
+      },
+      error: () => {
+        this.toPlanDetailsLoading = false;
+        this.toPlanDetails = [];
+      }
+    });
+  }
+
+  private loadToAssetInvestmentDetails(expenseId: number): void {
+    this.toPlanDetailsLoading = true;
+    this.servicebud.GatewayGetData({
+      FUNC_CODE: 'FUNC-Get_Mas_Expense_Detial',
+      Fk_Expense_Id: expenseId
+    }).subscribe({
+      next: (response: any) => {
+        this.toPlanDetailsLoading = false;
+        const rows = response?.List_Mas_Expense_Detial ?? response?.List_Mas_Expense_Detail;
+        this.toPlanDetails = (Array.isArray(rows) ? rows : [])
+          .map((detail: any) => {
+            const detailId = Number(
+              detail?.Expense_Detial_Id ?? detail?.Expense_Detail_Id ??
+              detail?.Fk_Expense_Detial_Id ?? detail?.Fk_Expense_Detail_Id ?? 0
+            );
+            return {
+              ...detail,
+              // Keep this property so the shared ng-select can bind in the
+              // same shape as Budget_Plan_Detail_Item.
+              Plan_Item_Id: detailId,
+              Fk_Expense_Detail_Id: detailId,
+              Expense_Detail: detail?.Expense_Detial_Name || detail?.Expense_Detail || '-',
+              Total: 0,
+              Is_Master_Expense_Detail: true
+            };
+          })
+          .filter((detail: any) => detail.Plan_Item_Id > 0);
+        this.resolveSelectedToPlanDetail();
       },
       error: () => {
         this.toPlanDetailsLoading = false;
@@ -1033,18 +1093,25 @@ export class ProjectTransferComponent
     this.form.From_Plan_Detail_Name = detail?.Expense_Detail || '';
   }
 
-  onChangeToPlan() {
+  onChangeToPlan(preserveDetail = false) {
     if (!this.expenseListsLoaded) {
-      this.loadExpenseLists(() => this.onChangeToPlan());
+      this.loadExpenseLists(() => this.onChangeToPlan(preserveDetail));
       return;
     }
 
     const plan = this.getSelectedToPlan();
+    const selectedDetailId = preserveDetail ? this.form.To_Plan_Detail_Item_Id : null;
+    const selectedDetailName = preserveDetail ? this.form.To_Plan_Detail_Name : '';
+    const selectedExpenseDetailId = preserveDetail ? this.form.To_Expense_Detail_Id : null;
 
     this.form.To_Plan_Name =
       plan?.Project_Name || plan?.Expense_List;
-    this.form.To_Plan_Detail_Item_Id = null;
-    this.form.To_Plan_Detail_Name = '';
+    this.form.To_Plan_Detail_Item_Id = selectedDetailId;
+    this.form.To_Plan_Detail_Name = selectedDetailName;
+    this.form.To_Expense_Detail_Id = selectedExpenseDetailId;
+    if (!preserveDetail) {
+      this.form.To_Plan_Detail_Other_Name = '';
+    }
     this.toPlanDetails = [];
     this.showToPlanDetail = !this.isProjectPlan(plan) && this.isInvestmentExpenseList(plan);
 
@@ -1060,6 +1127,47 @@ export class ProjectTransferComponent
       Number(x.IDA || 0) === Number(this.form.To_Plan_Detail_Item_Id)
     );
     this.form.To_Plan_Detail_Name = detail?.Expense_Detail || '';
+    this.form.To_Expense_Detail_Id = Number(
+      detail?.Fk_Expense_Detail_Id || detail?.Expense_Detial_Id || detail?.Plan_Item_Id || 0
+    ) || null;
+    if (!this.isOtherToPlanDetail(detail)) {
+      this.form.To_Plan_Detail_Other_Name = '';
+    }
+  }
+
+  private isOtherToPlanDetail(detail: any): boolean {
+    return String(detail?.Expense_Detial_Name || detail?.Expense_Detail || '')
+      .trim()
+      .replace(/\s/g, '') === 'อื่นๆ';
+  }
+
+  isSelectedToPlanDetailOther(): boolean {
+    return this.isOtherToPlanDetail(this.getSelectedToPlanDetail());
+  }
+
+  private getToPlanDetailName(): string {
+    return this.isSelectedToPlanDetailOther()
+      ? String(this.form?.To_Plan_Detail_Other_Name || '').trim()
+      : String(this.form?.To_Plan_Detail_Name || '').trim();
+  }
+
+  private resolveSelectedToPlanDetail(): void {
+    const selectedId = Number(
+      this.form?.To_Expense_Detail_Id || this.form?.To_Plan_Detail_Item_Id || 0
+    );
+    const selectedName = String(this.form?.To_Plan_Detail_Name || '').trim();
+    const detail = this.toPlanDetails.find((item: any) =>
+      (selectedId > 0 && (
+        Number(item?.Fk_Expense_Detail_Id || 0) === selectedId ||
+        Number(item?.Plan_Item_Id || 0) === selectedId
+      )) ||
+      (!!selectedName && String(item?.Expense_Detail || '').trim() === selectedName)
+    );
+
+    if (!detail) return;
+    this.form.To_Plan_Detail_Item_Id = detail.Plan_Item_Id;
+    this.form.To_Plan_Detail_Name = detail.Expense_Detail || '';
+    this.form.To_Expense_Detail_Id = Number(detail.Fk_Expense_Detail_Id || detail.Plan_Item_Id || 0) || null;
   }
 
   save(modal?: any) {
@@ -1071,6 +1179,49 @@ export class ProjectTransferComponent
     );
 
     const toPlan = this.getSelectedToPlan();
+    const toPlanDetail = this.getSelectedToPlanDetail();
+    const targetExpenseId = Number(toPlan?.Fk_Expense_List || toPlan?.Expense_Id || 0);
+    const isAssetInvestmentExpense = [56, 57, 58, 59, 60, 61, 62, 63].includes(targetExpenseId);
+    const requiresAssetDetail = isAssetInvestmentExpense &&
+      this.toPlanDetails.length > 0;
+
+    if (requiresAssetDetail && !toPlanDetail) {
+      basicAlert('warning', 'กรุณาเลือกรายการย่อย', '');
+      return;
+    }
+
+    if (this.isOtherToPlanDetail(toPlanDetail) && !this.getToPlanDetailName()) {
+      basicAlert('warning', 'กรุณาระบุรายการอื่นๆ', '');
+      return;
+    }
+
+    // This is the same essential data shape produced by
+    // app-expense-asset-investment-form.  Amounts deliberately start at 0;
+    // the transfer amount remains the value entered by the user.
+    const budgetPlanDetailItems = isAssetInvestmentExpense && toPlanDetail
+      ? [{
+        Plan_Item_Id: 0,
+        Fk_Budget_Plan: toPlan?.Is_Master_Expense_Option ? 0 : Number(toPlan?.Plan_Id || 0),
+        Fk_Expense_Id: targetExpenseId,
+        Fk_Expense_Detial_Id: Number(
+          toPlanDetail?.Fk_Expense_Detail_Id || toPlanDetail?.Plan_Item_Id || 0
+        ),
+        Fk_Expense_Detail_Id: Number(
+          toPlanDetail?.Fk_Expense_Detail_Id || toPlanDetail?.Plan_Item_Id || 0
+        ),
+        Expense_Detail: this.getToPlanDetailName(),
+        Quantity: 0,
+        Price: 0,
+        Total: 0,
+        Total_Plan: 0,
+        Adjust1: 0,
+        Adjust2: 0,
+        Adjust3: 0,
+        Update_Amount: 0,
+        Active: true,
+        Create_User: this.authService?.currentUserValue?.UserName || ''
+      }]
+      : [];
     const copySourcePlanToDestination = !this.isEdit &&
       toPlan?.Is_Source_Plan_Option === true &&
       Number(this.form.To_Department_Id) > 0 &&
@@ -1131,7 +1282,13 @@ export class ProjectTransferComponent
         this.form.To_Plan_Detail_Item_Id || 0,
 
       To_Plan_Detail_Name:
-        this.form.To_Plan_Detail_Name || '',
+        this.getToPlanDetailName(),
+
+      To_Plan_Detail_Other_Name:
+        this.form.To_Plan_Detail_Other_Name || '',
+
+      To_Expense_Detail_Id:
+        this.form.To_Expense_Detail_Id || 0,
 
       To_Department_Id:
         this.form.To_Department_Id || 0,
@@ -1178,6 +1335,10 @@ export class ProjectTransferComponent
 
       Budget_Plan_Transfer:
         payload,
+
+      // FUNC-Insert_Budget_Transfer can insert this detail into the target
+      // Budget_Plan (or the plan it creates for a Master expense selection).
+      Budget_Plan_Detail_Items: budgetPlanDetailItems,
 
       // When the target was selected from the source list, the backend uses
       // this source Plan_Id to create a new Budget_Plan for the destination
@@ -1470,6 +1631,10 @@ export class ProjectTransferComponent
       To_Plan_Detail_Item_Id: null,
 
       To_Plan_Detail_Name: '',
+
+      To_Expense_Detail_Id: null,
+
+      To_Plan_Detail_Other_Name: '',
 
       Transfer_Description: '',
 

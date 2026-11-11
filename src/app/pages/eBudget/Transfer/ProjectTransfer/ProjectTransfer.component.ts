@@ -486,18 +486,14 @@ export class ProjectTransferComponent
     }
 
     if (!preservePlans) {
-      this.form.From_Plan_Id = null;
-      this.form.From_Plan_Name = '';
-      this.form.From_Plan_Detail_Item_Id = null;
-      this.form.From_Plan_Detail_Name = '';
+      // Changing the destination must not discard the source item that was
+      // already selected.  Only clear fields belonging to the destination.
       this.form.To_Plan_Id = null;
       this.form.To_Plan_Name = '';
       this.form.To_Plan_Detail_Item_Id = null;
       this.form.To_Plan_Detail_Name = '';
       this.form.To_Expense_Detail_Id = null;
       this.form.To_Plan_Detail_Other_Name = '';
-      this.fromPlanDetails = [];
-      this.showFromPlanDetail = false;
       this.toPlanDetails = [];
       this.showToPlanDetail = false;
     }
@@ -600,6 +596,14 @@ export class ProjectTransferComponent
 
     this.toPlans = [...existingPlans, ...masterExpenseOptions];
     this.appendDetailNamesToDuplicateDestinationPlans();
+
+    // In edit mode the destination plan list can be rebuilt asynchronously
+    // after the form has already received To_Plan_Id.  Resolve it only after
+    // the list is ready; otherwise getSelectedToPlan() returns undefined and
+    // the destination sub-item selector never loads.
+    if (preservePlans && this.form?.To_Plan_Id) {
+      this.onChangeToPlan(true);
+    }
   }
 
   onChangeFromPlan(preserveDetail = false) {

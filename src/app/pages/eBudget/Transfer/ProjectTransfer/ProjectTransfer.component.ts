@@ -474,6 +474,13 @@ export class ProjectTransferComponent
 
   onChangeToDepartment(preservePlans = false) {
 
+    // The destination selector contains both existing plans and the complete
+    // expense master.  Ensure the master data is available before building it.
+    if (!this.expenseListsLoaded) {
+      this.loadExpenseLists(() => this.onChangeToDepartment(preservePlans));
+      return;
+    }
+
     if (!preservePlans) {
       this.form.From_Plan_Id = null;
       this.form.From_Plan_Name = '';
@@ -546,7 +553,7 @@ export class ProjectTransferComponent
     }));
 
     const planIds = new Set<number>();
-    this.toPlans = [...destinationPlans, ...sourcePlans].filter((plan: any) => {
+    const existingPlans = [...destinationPlans, ...sourcePlans].filter((plan: any) => {
       const planId = Number(plan?.Plan_Id || 0);
       if (!planId || planIds.has(planId)) {
         return false;
@@ -556,6 +563,36 @@ export class ProjectTransferComponent
       plan.Plan_Display_Name = this.getPlanDisplayName(plan);
       return true;
     });
+
+    // Always offer every item from Mas_Expense_List.  An item that is already
+    // represented by a plan/source option is intentionally not repeated.
+    const existingExpenseIds = new Set<number>(
+      existingPlans
+        .map((plan: any) => Number(plan?.Fk_Expense_List || plan?.Fk_Expense_Id || 0))
+        .filter((expenseId: number) => expenseId > 0)
+    );
+    const masterExpenseOptions = this.expenseLists
+      .filter((expense: any) => {
+        const expenseId = Number(expense?.Expense_Id || expense?.Fk_Expense_List || 0);
+        return expenseId > 0 && !existingExpenseIds.has(expenseId);
+      })
+      .map((expense: any) => {
+        const expenseId = Number(expense?.Expense_Id || expense?.Fk_Expense_List || 0);
+        return {
+          ...expense,
+          // A string key prevents a Master Expense_Id from colliding with a
+          // real Budget_Plan Plan_Id in ng-select.
+          Plan_Id: `MASTER_EXPENSE_${expenseId}`,
+          Fk_Expense_List: expenseId,
+          Expense_Id: expenseId,
+          Expense_List: expense?.Expense_List || expense?.Expense_Name || '',
+          Plan_Display_Name: expense?.Expense_List || expense?.Expense_Name || '',
+          Is_Master_Expense_Option: true,
+          Is_Source_Plan_Option: false
+        };
+      });
+
+    this.toPlans = [...existingPlans, ...masterExpenseOptions];
     this.appendDetailNamesToDuplicateDestinationPlans();
   }
 
@@ -642,7 +679,8 @@ export class ProjectTransferComponent
     this.fromPlans
       .filter((plan: any) =>
         countByName.get(this.getPlanDisplayName(plan))! > 1 &&
-        !this.isProjectPlan(plan)
+        !this.isProjectPlan(plan) &&
+        !plan?.Is_Master_Expense_Option
       )
       .forEach((plan: any) => {
         const planId = Number(plan?.Plan_Id || 0);
@@ -705,7 +743,8 @@ export class ProjectTransferComponent
     this.toPlans
       .filter((plan: any) =>
         countByName.get(this.getPlanDisplayName(plan))! > 1 &&
-        !this.isProjectPlan(plan)
+        !this.isProjectPlan(plan) &&
+        !plan?.Is_Master_Expense_Option
       )
       .forEach((plan: any) => {
         const planId = Number(plan?.Plan_Id || 0);
@@ -772,6 +811,12 @@ export class ProjectTransferComponent
 
   private isProjectPlan(plan: any): boolean {
     return String(plan?.Project_Name || '').trim().length > 0;
+  }
+
+  private getSelectedToPlan(): any {
+    return this.toPlans.find((plan: any) =>
+      String(plan?.Plan_Id) === String(this.form?.To_Plan_Id)
+    );
   }
 
   private loadPlanBalance(plan: any): void {
@@ -994,15 +1039,7 @@ export class ProjectTransferComponent
       return;
     }
 
-    const plan =
-      this.toPlans.find(
-        (x: any) =>
-          Number(x.Plan_Id)
-          ===
-          Number(
-            this.form.To_Plan_Id
-          )
-      );
+    const plan = this.getSelectedToPlan();
 
     this.form.To_Plan_Name =
       plan?.Project_Name || plan?.Expense_List;
@@ -1033,12 +1070,7 @@ export class ProjectTransferComponent
         Number(this.form.From_Plan_Id)
     );
 
-    const toPlan = this.toPlans.find(
-      (x: any) =>
-        Number(x.Plan_Id)
-        ===
-        Number(this.form.To_Plan_Id)
-    );
+    const toPlan = this.getSelectedToPlan();
     const copySourcePlanToDestination = !this.isEdit &&
       toPlan?.Is_Source_Plan_Option === true &&
       Number(this.form.To_Department_Id) > 0 &&
@@ -1108,7 +1140,12 @@ export class ProjectTransferComponent
         this.form.To_Department_Name || '',
 
       To_Plan_Id:
-        this.form.To_Plan_Id || 0,
+        toPlan?.Is_Master_Expense_Option ? 0 : (this.form.To_Plan_Id || 0),
+
+      // Retain the selected master Expense_Id when the target has no existing
+      // Budget_Plan yet.  Existing transfer records continue using To_Plan_Id.
+      To_Expense_Id:
+        Number(toPlan?.Fk_Expense_List || toPlan?.Expense_Id || 0),
 
 
 

@@ -927,18 +927,25 @@
 
                 <!-- <h5 class="fw-bold mb-4">รายงานผลกรณีโครงการ</h5> -->
                 <div class="card p-3 mb-3 border-0 shadow-sm">
-                    <label class="fw-semibold">ไตรมาส</label>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="fw-semibold">เดือน</label>
+                            <ng-select [items]="Mas_Month_Lists" bindLabel="Month_Name" bindValue="Month_Id"
+                                [(ngModel)]="selectedProgressMonth" appendTo="body"
+                                (ngModelChange)="onProgressMonthChange($event)" [clearable]="true"
+                                [searchable]="true" placeholder="-- เลือกเดือน --">
+                            </ng-select>
+                        </div>
 
-                    <div class="col-md-3">
-
-                        <ng-select [items]="Tri_lists" bindLabel="name" bindValue="Trimas_Id" [(ngModel)]="selectedTri"
-                            appendTo="body" (ngModelChange)="onQuarterChange($event)" [clearable]="true"
-                            [searchable]="false" placeholder="-- เลือกไตรมาส --">
-
-                        </ng-select>
-
+                        <div class="col-md-3">
+                            <label class="fw-semibold">สถานะการดำเนินงาน</label>
+                            <ng-select [items]="Mas_Operation_Status_Lists" bindLabel="Operation_Name"
+                                bindValue="Operation_Id" [(ngModel)]="selectedOperationStatus" appendTo="body"
+                                [clearable]="true" [searchable]="true"
+                                placeholder="-- เลือกสถานะการดำเนินงาน --">
+                            </ng-select>
+                        </div>
                     </div>
-                    <div class="col-md-6"></div>
                 </div>
 
 

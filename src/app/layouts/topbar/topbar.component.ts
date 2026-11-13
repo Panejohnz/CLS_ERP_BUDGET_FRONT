@@ -258,7 +258,7 @@ export class TopbarComponent implements OnInit {
   logout() {
     this.menuService.clearMenu();
     this.authService.logout();
-    window.location.href = "https://bfast.pacc.go.th/cls_erp_management_front/";
+    window.location.href = environment.MANAGEMENT_FRONT;
   }
 
   changePermission(): void {

@@ -35,6 +35,32 @@ export class AuthGuard implements CanActivate {
 
         const routeToken = route.queryParams['token'] || route.queryParams['Token'];
 
+        // A browser refresh has no token in the URL, but the authenticated
+        // Management session is already stored locally. Reuse that valid
+        // session instead of redirecting the user because of a second,
+        // unnecessary Management request during application bootstrap.
+        if (!routeToken && this.sessionService.hasValidSession()) {
+            const session = this.sessionService.getUserSession();
+            if (session) {
+                localStorage.setItem('token', session.token);
+                localStorage.setItem('userToken', session.token);
+                localStorage.setItem('userSession', JSON.stringify(session));
+
+                if (session.permissionData) {
+                    localStorage.setItem(
+                        'selectedPermission',
+                        JSON.stringify(session.permissionData)
+                    );
+                }
+
+                if (session.authenData) {
+                    localStorage.setItem('authen', JSON.stringify(session.authenData));
+                }
+
+                return true;
+            }
+        }
+
         // เปิดหน้าภายในได้เฉพาะเมื่อมี session ที่ระบบสร้างไว้และยังไม่หมดอายุ
         if (!routeToken) {
             try {

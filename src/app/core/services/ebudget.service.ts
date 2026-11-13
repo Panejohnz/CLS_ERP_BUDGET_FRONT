@@ -66,7 +66,7 @@ export class EbudgetService {
 
         if (!this.currentUserSubject || !this.currentUserSubject.value) {
 
-            window.location.href = 'https://bfast.pacc.go.th/cls_erp_management_front/';
+            window.location.href = environment.MANAGEMENT_FRONT;
             return of(null);
         }
 

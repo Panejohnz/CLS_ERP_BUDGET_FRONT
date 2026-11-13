@@ -56,7 +56,10 @@ export class ReportResultComponent
   Summary_Result: any
   Suggestions: any
   Progress_Id: any
-  selectedTri = null;
+  selectedProgressMonth: any = null;
+  selectedOperationStatus: any = null;
+  Mas_Month_Lists: any[] = [];
+  Mas_Operation_Status_Lists: any[] = [];
   Report_Attach_File: any[] = [];
   reportAttachmentModel: any = {
     Report_Attach_File: []
@@ -129,29 +132,6 @@ export class ReportResultComponent
     return Math.min(safePage * pageSize, total);
   }
 
-  Tri_lists = [
-
-    {
-      Trimas_Id: 1,
-      name: 'ไตรมาส 1'
-    },
-
-    {
-      Trimas_Id: 2,
-      name: 'ไตรมาส 2'
-    },
-
-    {
-      Trimas_Id: 3,
-      name: 'ไตรมาส 3'
-    },
-
-    {
-      Trimas_Id: 4,
-      name: 'ไตรมาส 4'
-    }
-
-  ];
   quarterMonths = [
 
     ['ต.ค.', 'พ.ย.', 'ธ.ค.'],
@@ -173,6 +153,7 @@ export class ReportResultComponent
   ngOnInit(): void {
     this.sortService.page = 1;
     this.sortService.pageSize = 20;
+    this.loadReportProgressMasters();
 
     const sessionStr = localStorage.getItem('userSession');
 
@@ -287,6 +268,20 @@ export class ReportResultComponent
             }
           }
         });
+    });
+  }
+
+  private loadReportProgressMasters(): void {
+    this.servicebud.GatewayGetData({
+      FUNC_CODE: 'FUNC-GET_Report_Progress_Master'
+    }).subscribe((response: any) => {
+      this.Mas_Month_Lists = (response?.List_Mas_Month || [])
+        .filter((item: any) => item?.Active !== false && Number(item?.Active ?? 1) !== 0)
+        .sort((a: any, b: any) => Number(a.Month_Id || 0) - Number(b.Month_Id || 0));
+
+      this.Mas_Operation_Status_Lists = (response?.List_Mas_Operation_Status || [])
+        .filter((item: any) => item?.Active !== false && Number(item?.Active ?? 1) !== 0)
+        .sort((a: any, b: any) => Number(a.Operation_Id || 0) - Number(b.Operation_Id || 0));
     });
   }
 
@@ -566,8 +561,12 @@ export class ReportResultComponent
 
             this.model.activities = activities;
             console.log('a', this.model.activities);
-            const Progress_list =
-              res.Report_Budget_Plan_Progress || {};
+            const initialProgress = res.Report_Budget_Plan_Progress || {};
+            // Quarterly records created by the old screen must not appear as
+            // a monthly report. Only restore a record that has Month_Id.
+            const Progress_list = Number(initialProgress.Month_Id || 0) > 0
+              ? initialProgress
+              : {};
 
             this.Progress_Id = Progress_list.Progress_Id || 0
             this.Report_Attach_File =
@@ -594,7 +593,8 @@ export class ReportResultComponent
             this.Solutions = Progress_list.Solutions || ''
             this.Summary_Result = Progress_list.Summary_Result || ''
             this.Suggestions = Progress_list.Suggestions || ''
-            this.selectedTri = Progress_list.Trimas_Id || null
+            this.selectedProgressMonth = Progress_list.Month_Id || null
+            this.selectedOperationStatus = Progress_list.Operation_Status_Id || null
             this.reportData =
               this.buildReportDataFromDetails(
                 detailList,
@@ -1732,17 +1732,17 @@ export class ReportResultComponent
       );
 
   }
-  onQuarterChange(selectedTri?: any) {
+  onProgressMonthChange(selectedMonth?: any) {
 
-    // ng-select emits the new value here.  Use it directly so the request
-    // cannot accidentally reuse the previously selected quarter.
-    if (selectedTri !== undefined) {
-      this.selectedTri = selectedTri;
+    // Use the emitted value directly so an older response cannot overwrite
+    // data belonging to the newly selected month.
+    if (selectedMonth !== undefined) {
+      this.selectedProgressMonth = selectedMonth;
     }
 
     const loadVersion = ++this.progressLoadVersion;
 
-    if (!this.selectedTri) {
+    if (!this.selectedProgressMonth) {
       this.Output_Result =
         this.cloneReportList(this.Project_Output_Default);
 
@@ -1755,35 +1755,35 @@ export class ReportResultComponent
       this.Summary_Result = '';
       this.Suggestions = '';
       this.Progress_Id = 0;
+      this.selectedOperationStatus = null;
       this.Report_Attach_File = [];
       this.syncReportAttachmentModel(this.Report_Attach_File);
       this.normalizeUnitBindings();
       return;
     }
 
-    const requestedTri = Number(this.selectedTri);
+    const requestedMonth = Number(this.selectedProgressMonth);
 
     const model = {
       FUNC_CODE: 'FUNC-Get_Report_Budget_Plan_Progress',
       Fk_Plan_Id: this.selectedItem.Plan_Id,
-      Trimas_Id: requestedTri
+      Month_Id: requestedMonth
     };
 
     this.servicebud
       .GatewayGetData(model)
       .subscribe((res: any) => {
 
-        // Ignore an older request, or a response for another quarter. Without
-        // this check a saved Q1 response can overwrite the blank Q2 form.
+        // Ignore an older request, or a response for another month.
         if (
           loadVersion !== this.progressLoadVersion ||
-          Number(this.selectedTri) !== requestedTri
+          Number(this.selectedProgressMonth) !== requestedMonth
         ) {
           return;
         }
 
         const responseProgress = res?.Report_Budget_Plan_Progress || {};
-        const hasMatchingProgress = Number(responseProgress?.Trimas_Id || 0) === requestedTri;
+        const hasMatchingProgress = Number(responseProgress?.Month_Id || 0) === requestedMonth;
         const progress = hasMatchingProgress
           ? responseProgress
           : {};
@@ -1802,6 +1802,7 @@ export class ReportResultComponent
         this.Summary_Result = progress.Summary_Result || '';
         this.Suggestions = progress.Suggestions || '';
         this.Progress_Id = progress.Progress_Id || 0;
+        this.selectedOperationStatus = progress.Operation_Status_Id || null;
         this.Report_Attach_File = hasMatchingProgress
           ? this.extractReportAttachFiles(res, this.selectedItem?.Plan_Id, this.Progress_Id)
           : [];
@@ -1820,10 +1821,16 @@ export class ReportResultComponent
 
   }
 
-  private getSelectedQuarterName(): string {
-    return this.Tri_lists.find((item: any) =>
-      Number(item.Trimas_Id) === Number(this.selectedTri)
-    )?.name || '';
+  private getSelectedProgressMonthName(): string {
+    return this.Mas_Month_Lists.find((item: any) =>
+      Number(item.Month_Id) === Number(this.selectedProgressMonth)
+    )?.Month_Name || '';
+  }
+
+  private getSelectedOperationStatusName(): string {
+    return this.Mas_Operation_Status_Lists.find((item: any) =>
+      Number(item.Operation_Id) === Number(this.selectedOperationStatus)
+    )?.Operation_Name || '';
   }
 
   async save(modal: any) {
@@ -1896,8 +1903,10 @@ export class ReportResultComponent
       BgYear: this.currentYear,
       Progress_Id: this.Progress_Id || 0,
       Active: true,
-      Trimas_Id: this.selectedTri || 0,
-      Trimas_Name: this.getSelectedQuarterName(),
+      Month_Id: this.selectedProgressMonth || 0,
+      Month_Name: this.getSelectedProgressMonthName(),
+      Operation_Status_Id: this.selectedOperationStatus || 0,
+      Operation_Status_Name: this.getSelectedOperationStatusName(),
       Output_Result: JSON.stringify(this.Output_Result || []),
       Outcome_Result: JSON.stringify(this.Outcome_Result || [])
     };

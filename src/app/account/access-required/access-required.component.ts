@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-access-required',
@@ -7,6 +8,6 @@ import { Component } from '@angular/core';
 })
 export class AccessRequiredComponent {
   goToLogin(): void {
-    window.location.href = 'https://bfast.pacc.go.th/cls_erp_management_front/';
+    window.location.href = environment.MANAGEMENT_FRONT;
   }
 }

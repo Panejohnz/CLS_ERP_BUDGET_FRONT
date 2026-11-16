@@ -46,7 +46,7 @@ export class EbudgetService {
 
 
         return this.http.post(EMO_API + 'GATE_WAY/GATEWAY_EXCHANGE', {
-            MODEL: JSON.stringify(model)
+            MODEL: this.serializeModelWithPersonalId(model)
         }).pipe(
             map((response: any) => {
                 return response;
@@ -73,7 +73,7 @@ export class EbudgetService {
 
 
         return this.http.post(EMO_API + 'GATE_WAY/GATEWAY_EXCHANGE_NO_CDATE', {
-            MODEL: JSON.stringify(model)
+            MODEL: this.serializeModelWithPersonalId(model)
         }).pipe(
             map((response: any) => {
                 return response;
@@ -117,6 +117,77 @@ export class EbudgetService {
 
         try {
             return JSON.parse(localStorage.getItem('userSession') || '{}')?.token || null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Add audit identity without replacing the original creator. Existing rows
+     * already have Create_User and therefore receive Update_User only; new rows
+     * receive Create_User only. The same rule is applied to the root request so
+     * an edit request never receives a new Create_User implicitly.
+     */
+    private serializeModelWithPersonalId(model: any): string {
+        const personalId = this.getCurrentPersonalId();
+
+        if (!personalId) {
+            return JSON.stringify(model);
+        }
+
+        return JSON.stringify(model, (_key: string, value: any) => {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                const hasCreator = value.Create_User !== null
+                    && value.Create_User !== undefined
+                    && String(value.Create_User).trim() !== '';
+
+                if (hasCreator) {
+                    return {
+                        ...value,
+                        Update_User: personalId
+                    };
+                }
+
+                return {
+                    ...value,
+                    Create_User: personalId
+                };
+            }
+
+            return value;
+        });
+    }
+
+    private getCurrentPersonalId(): string {
+        const selectedPermission = this.readStoredJson('selectedPermission');
+        const userSession = this.readStoredJson('userSession');
+        const authen = this.readStoredJson('authen');
+        const currentUser = this.readStoredJson('currentUser');
+
+        const personalId =
+            selectedPermission?.Personal_Id ??
+            selectedPermission?.PERSONAL_ID ??
+            userSession?.permissionData?.Personal_Id ??
+            userSession?.permissionData?.PERSONAL_ID ??
+            userSession?.authenData?.Personal_Id ??
+            userSession?.authenData?.PERSONAL_ID ??
+            authen?.Personal_Id ??
+            authen?.PERSONAL_ID ??
+            currentUser?.Personal_Id ??
+            currentUser?.PERSONAL_ID ??
+            '';
+
+        return String(personalId).trim();
+    }
+
+    private readStoredJson(key: string): any {
+        const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (!value) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(value);
         } catch {
             return null;
         }

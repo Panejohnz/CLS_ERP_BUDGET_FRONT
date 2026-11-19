@@ -12,6 +12,7 @@
   border-radius: 10px 10px 0 0;
   background: #f3f7fd;
   color: #183b70;
+  font-size: 16px;
   font-weight: 600;
   transition: .2s ease;
 
@@ -61,6 +62,26 @@
 .project-amount-cell small { display: block; color: #60748c; }
 .operation-status-badge { --operation-color: #1688ef; display: inline-block; max-width: 260px; padding: 5px 10px; border: 1px solid var(--operation-color); border-radius: 14px; color: var(--operation-color); background: #f7fbff; font-size: 12px; line-height: 1.35; }
 
+// Project tab: retain prominent values, but make labels, filters and table
+// content readable at the requested 16px baseline.
+.projects-dashboard-panel { font-size: 16px; }
+.projects-dashboard-panel .dashboard-filter-panel label,
+.projects-dashboard-panel .form-select,
+.projects-dashboard-panel .dashboard-clear,
+.projects-dashboard-panel .dashboard-metric span,
+.projects-dashboard-panel .dashboard-metric small,
+.projects-dashboard-panel .status-breakdown-row,
+.projects-dashboard-panel .result-progress span,
+.projects-dashboard-panel .result-progress strong,
+.projects-dashboard-panel .dashboard-table-card th,
+.projects-dashboard-panel .dashboard-table-card td,
+.projects-dashboard-panel .dashboard-pagination,
+.projects-dashboard-panel .project-amount-cell small,
+.projects-dashboard-panel .operation-status-badge { font-size: 16px; }
+.projects-dashboard-panel .dashboard-visual-card h5,
+.projects-dashboard-panel .dashboard-table-card h5 { font-size: 18px; }
+.projects-dashboard-panel .project-progress-cell strong { font-size: 16px; }
+
 @keyframes dashboardFade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1199px) { .dashboard-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.dashboard-filter-panel { grid-template-columns: repeat(2, 1fr); } }
@@ -86,7 +107,7 @@
 .department-detail-title { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 0 5px 12px; }.department-detail-title h4 { margin: 0; color: #0b326b; font-weight: 700; }.department-detail-title button { padding: 9px 15px; border: 0; border-radius: 9px; color: #148236; background: #eaf8ee; font-weight: 700; }
 .department-detail-table { border: 1px solid #cbdcf0; border-radius: 14px; }.department-detail-table thead th { white-space: nowrap; color: #fff; background: linear-gradient(#0759aa, #034483); }.department-detail-table tfoot th { background: #cceaff; font-size: 15px; }
 :host ::ng-deep .apexcharts-xaxis-label { cursor: pointer; }
-.modal-percent { position: relative; min-width: 120px; height: 24px; overflow: hidden; border-radius: 14px; background: #e1e9f3; text-align: center; }.modal-percent span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #2fad51; }.modal-percent.blue span { background: #1687f0; }.modal-percent b { position: relative; z-index: 1; color: #fff; font-size: 12px; line-height: 24px; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.modal-percent { position: relative; min-width: 120px; height: 24px; overflow: hidden; border-radius: 14px; background: #e1e9f3; text-align: center; }.modal-percent span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #2fad51; }.modal-percent.blue span { background: #1687f0; }.modal-percent b { position: relative; z-index: 1; color: #000; font-size: 12px; line-height: 24px; text-shadow: none; }
 .department-budget-loading { position: fixed; z-index: 1070; inset: 0; display: grid; place-items: center; background: rgba(9, 25, 48, .45); }
 .department-loading-box { display: flex; align-items: center; gap: 14px; padding: 20px 26px; border-radius: 14px; color: #123b70; background: #fff; box-shadow: 0 12px 35px rgba(0, 22, 62, .28); }
 .department-loading-spinner { width: 34px; height: 34px; border: 4px solid #d8e8fa; border-top-color: #087cf0; border-radius: 50%; animation: departmentSpinner .75s linear infinite; }

@@ -20,7 +20,7 @@
 
     <div [hidden]="activeDashboardTab !== 'overview'">
 
-        <div class="budget-filter-strip">
+        <div style="font-size: 16px;" class="budget-filter-strip">
             <label><input type="checkbox" [checked]="budgetGroupFilters['personnel']"
                     (change)="toggleBudgetGroup('personnel', $any($event.target).checked)"> งบบุคลากร</label>
             <label><input type="checkbox" [checked]="budgetGroupFilters['operating']"
@@ -278,7 +278,7 @@
 
     </div>
 
-    <section *ngIf="activeDashboardTab === 'projects'" class="dashboard-tab-panel">
+    <section *ngIf="activeDashboardTab === 'projects'" class="dashboard-tab-panel projects-dashboard-panel">
         <div class="dashboard-filter-panel">
             <div><label>หน่วยงาน</label><select class="form-select" [(ngModel)]="selectedProjectDepartment"
                     (ngModelChange)="refreshProjectView()">
@@ -306,7 +306,7 @@
                     class="ri-filter-off-line"></i> ล้างค่า</button>
         </div>
 
-        <div class="dashboard-metric-grid">
+        <div style="font-size: 16px;"  class="dashboard-metric-grid">
             <div class="dashboard-metric blue"><span>โครงการทั้งหมด</span><strong>{{ filteredProjectDashboardRows.length
                     | number }}</strong><small>โครงการ/รายการ</small></div>
             <div class="dashboard-metric status-card" *ngFor="let stat of projectStatusSummary" [ngClass]="stat.color">
@@ -576,9 +576,9 @@
                             <td class="text-center">{{ i + 1 }}</td><td>{{ item.name }}</td>
                             <td class="text-end">{{ item.budget | number:'1.2-2' }}</td>
                             <td class="text-end">{{ item.used | number:'1.2-2' }}</td>
-                            <td><div class="modal-percent green"><span [style.width.%]="item.usedPercent"></span><b>{{ item.usedPercent | number:'1.2-2' }}%</b></div></td>
+                            <td><div style="color: black;" class="modal-percent green"><span [style.width.%]="item.usedPercent"></span><b>{{ item.usedPercent | number:'1.2-2' }}%</b></div></td>
                             <td class="text-end">{{ item.withdraw | number:'1.2-2' }}</td>
-                            <td><div class="modal-percent blue"><span [style.width.%]="item.withdrawPercent"></span><b>{{ item.withdrawPercent | number:'1.2-2' }}%</b></div></td>
+                            <td><div  style="color: black;"  class="modal-percent blue"><span [style.width.%]="item.withdrawPercent"></span><b>{{ item.withdrawPercent | number:'1.2-2' }}%</b></div></td>
                             <td class="text-end">{{ item.remaining | number:'1.2-2' }}</td>
                         </tr>
                     </tbody>

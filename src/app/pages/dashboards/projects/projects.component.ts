@@ -1815,6 +1815,21 @@ exportDepartmentBudgetExcel(): void {
     'คงเหลือเบิกจ่าย (บาท)': item.remaining
   }));
   const worksheet = XLSX.utils.json_to_sheet(rows);
+  // Keep exported amounts and percentages as numeric values, while showing
+  // thousands separators and two decimal places in Excel.
+  const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+  for (let row = sheetRange.s.r + 1; row <= sheetRange.e.r; row++) {
+    for (let column = 2; column <= 7; column++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })];
+      if (cell?.t === 'n') {
+        cell.z = '#,##0.00';
+      }
+    }
+  }
+  worksheet['!cols'] = [
+    { wch: 10 }, { wch: 48 }, { wch: 20 }, { wch: 22 },
+    { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 22 }
+  ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'รายละเอียดงบประมาณ');
   XLSX.writeFile(workbook, `รายละเอียดงบประมาณ_${modal.departmentName}.xlsx`);

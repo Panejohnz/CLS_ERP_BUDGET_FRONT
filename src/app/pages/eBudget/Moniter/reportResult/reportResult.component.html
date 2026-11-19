@@ -516,15 +516,15 @@
 
                         </td>
 
+
                         <td>
-                            @if(data.Is_Adjust_List){
-                            {{data.Expense_List}}
-                            }@else if(data.Project_Name){
-                            {{data.Project_Name}}
-                            }@else{
-                            {{data.Expense_List}}
+                            @if (['64', '70', '73', '74', '75'].includes(data.Fk_Expense_List)) {
+                            {{ data.Project_Name }}
+                            } @else {
+                            {{ data.Expense_List }}
                             }
                         </td>
+
 
                         <td class="text-end">
 
@@ -932,8 +932,8 @@
                             <label class="fw-semibold">เดือน</label>
                             <ng-select [items]="Mas_Month_Lists" bindLabel="Month_Name" bindValue="Month_Id"
                                 [(ngModel)]="selectedProgressMonth" appendTo="body"
-                                (ngModelChange)="onProgressMonthChange($event)" [clearable]="true"
-                                [searchable]="true" placeholder="-- เลือกเดือน --">
+                                (ngModelChange)="onProgressMonthChange($event)" [clearable]="true" [searchable]="true"
+                                placeholder="-- เลือกเดือน --">
                             </ng-select>
                         </div>
 
@@ -941,8 +941,7 @@
                             <label class="fw-semibold">สถานะการดำเนินงาน</label>
                             <ng-select [items]="Mas_Operation_Status_Lists" bindLabel="Operation_Name"
                                 bindValue="Operation_Id" [(ngModel)]="selectedOperationStatus" appendTo="body"
-                                [clearable]="true" [searchable]="true"
-                                placeholder="-- เลือกสถานะการดำเนินงาน --">
+                                [clearable]="true" [searchable]="true" placeholder="-- เลือกสถานะการดำเนินงาน --">
                             </ng-select>
                         </div>
                     </div>

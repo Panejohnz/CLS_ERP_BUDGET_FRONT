@@ -1,68 +1,52 @@
-<app-breadcrumbs title="" [breadcrumbItems]="breadCrumbItems">
-</app-breadcrumbs>
+<!-- <app-breadcrumbs title="" [breadcrumbItems]="breadCrumbItems">
+</app-breadcrumbs> -->
 
 <div class="container-fluid">
 
-    <!-- SUMMARY CARDS -->
-    <div class="row">
+    <nav class="dashboard-tabs" aria-label="เมนูแดชบอร์ดงบประมาณ">
+        <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'overview'"
+            (click)="setDashboardTab('overview')">
+            <i class="ri-dashboard-line"></i><span>ภาพรวม</span>
+        </button>
+        <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'projects'"
+            (click)="setDashboardTab('projects')">
+            <i class="ri-folder-3-line"></i><span>โครงการ</span>
+        </button>
+        <!-- <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'carryover'"
+            (click)="setDashboardTab('carryover')">
+            <i class="ri-calendar-check-line"></i><span>เงินกันเบิกเหลื่อมปี</span>
+        </button> -->
+    </nav>
 
-        <div class="col-12">
+    <div [hidden]="activeDashboardTab !== 'overview'">
 
-            <div class="row g-3 mb-3">
+        <div class="budget-filter-strip">
+            <label><input type="checkbox" [checked]="budgetGroupFilters['personnel']"
+                    (change)="toggleBudgetGroup('personnel', $any($event.target).checked)"> งบบุคลากร</label>
+            <label><input type="checkbox" [checked]="budgetGroupFilters['operating']"
+                    (change)="toggleBudgetGroup('operating', $any($event.target).checked)"> งบดำเนินงาน</label>
+            <label><input type="checkbox" [checked]="budgetGroupFilters['investment']"
+                    (change)="toggleBudgetGroup('investment', $any($event.target).checked)"> งบลงทุน</label>
+            <label><input type="checkbox" [checked]="budgetGroupFilters['subsidy']"
+                    (change)="toggleBudgetGroup('subsidy', $any($event.target).checked)"> งบอุดหนุน</label>
+            <label><input type="checkbox" [checked]="budgetGroupFilters['other']"
+                    (change)="toggleBudgetGroup('other', $any($event.target).checked)"> งบรายจ่ายอื่น</label>
+        </div>
 
-                <div class="col-xl-4 col-md-6" *ngFor="let stat of statData">
+        <!-- SUMMARY CARDS -->
+        <div class="row">
 
-                    <app-projects-stat [title]="stat.title" 
-                    [value]="stat.value" 
-                    [Reimburse]="stat.Reimburse"                                    
-                    [Remaining]="stat.Remaining"           
-                    [icon]="stat.icon" >
-                    </app-projects-stat>
-                       <!-- [persantage]="stat.persantage"
+            <div class="col-12">
+
+                <div class="row g-3 mb-3">
+
+                    <div class="col-xl-4 col-md-6" *ngFor="let stat of statData">
+
+                        <app-projects-stat [title]="stat.title" [value]="stat.value" [Reimburse]="stat.Reimburse"
+                            [Remaining]="stat.Remaining" [icon]="stat.icon">
+                        </app-projects-stat>
+                        <!-- [persantage]="stat.persantage"
                         [profit]="stat.profit" [month]="stat.month" -->
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- CHART SECTION -->
-    <div class="row g-3 mt-2">
-
-        <!-- PIE -->
-        <div class="col-xl-6 col-md-12">
-
-            <div class="card h-100">
-
-                <div class="card-header">
-
-                    <h5 class="mb-0">
-                        ภาพรวมงบประมาณ
-                    </h5>
-
-                </div>
-
-                <div class="card-body">
-
-                    <div *ngIf="chartNotes.pieBudgetType" class="small text-muted mb-2">
-                        {{ chartNotes.pieBudgetType }}
-                    </div>
-                    
-     <apx-chart
-    *ngIf="pieChart?.series?.length"
-    [series]="pieChart.series"
-    [chart]="pieChart.chart"
-    [labels]="pieChart.labels"
-    [colors]="pieChart.colors"
-    [tooltip]="pieChart.tooltip"
-    [dataLabels]="pieChart.dataLabels"
-    [legend]="pieChart.legend">
-</apx-chart>
-
-                    <div *ngIf="!pieChart?.series?.length" class="text-center text-muted py-5">
-                        ไม่พบข้อมูล
                     </div>
 
                 </div>
@@ -71,26 +55,63 @@
 
         </div>
 
-        <!-- BAR LINE -->
-        <div class="col-xl-6 col-md-12">
+        <!-- CHART SECTION -->
+        <div class="row g-3 mt-2">
 
-            <div class="card h-100">
+            <!-- PIE -->
+            <div class="col-xl-6 col-md-12">
 
-                <div class="card-header">
+                <div class="card h-100">
 
-                    <h5 class="mb-0">
-                        ภาพรวมเงินงบประมาณแยกตามหมวดงบประมาณ
-                    </h5>
+                    <div class="card-header">
+
+                        <h5 class="mb-0">
+                            ภาพรวมงบประมาณ
+                        </h5>
+
+                    </div>
+
+                    <div class="card-body">
+
+                        <div *ngIf="chartNotes.pieBudgetType" class="small text-muted mb-2">
+                            {{ chartNotes.pieBudgetType }}
+                        </div>
+
+                        <apx-chart *ngIf="pieChart?.series?.length" [series]="pieChart.series" [chart]="pieChart.chart"
+                            [labels]="pieChart.labels" [colors]="pieChart.colors" [tooltip]="pieChart.tooltip"
+                            [dataLabels]="pieChart.dataLabels" [legend]="pieChart.legend">
+                        </apx-chart>
+
+                        <div *ngIf="!pieChart?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
+                    </div>
 
                 </div>
 
-                <div class="card-body">
+            </div>
 
-                    <div *ngIf="chartNotes.barBudgetType" class="small text-muted mb-2">
-                        {{ chartNotes.barBudgetType }}
+            <!-- BAR LINE -->
+            <div class="col-xl-6 col-md-12">
+
+                <div class="card h-100">
+
+                    <div class="card-header">
+
+                        <h5 class="mb-0">
+                            ภาพรวมเงินงบประมาณแยกตามหมวดงบประมาณ
+                        </h5>
+
                     </div>
 
-<!-- <apx-chart
+                    <div class="card-body">
+
+                        <div *ngIf="chartNotes.barBudgetType" class="small text-muted mb-2">
+                            {{ chartNotes.barBudgetType }}
+                        </div>
+
+                        <!-- <apx-chart
     *ngIf="barLineChart?.series?.length"
     [series]="barLineChart.series"
     [chart]="barLineChart.chart"
@@ -100,192 +121,483 @@
     [colors]="barLineChart.colors"
     [tooltip]="barLineChart.tooltip">
 </apx-chart> -->
-<apx-chart
-    *ngIf="barLineChart?.series?.length"
-    [series]="barLineChart.series"
-    [chart]="barLineChart.chart"
-    [xaxis]="barLineChart.xaxis"
-    [yaxis]="barLineChart.yaxis"
-    [stroke]="barLineChart.stroke"
-    [colors]="barLineChart.colors"
-    [tooltip]="barLineChart.tooltip">
-</apx-chart>
-                    <div *ngIf="!barLineChart?.series?.length" class="text-center text-muted py-5">
-                        ไม่พบข้อมูล
+                        <apx-chart *ngIf="barLineChart?.series?.length" [series]="barLineChart.series"
+                            [chart]="barLineChart.chart" [xaxis]="barLineChart.xaxis" [yaxis]="barLineChart.yaxis"
+                            [stroke]="barLineChart.stroke" [colors]="barLineChart.colors"
+                            [tooltip]="barLineChart.tooltip">
+                        </apx-chart>
+                        <div *ngIf="!barLineChart?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
                     </div>
 
                 </div>
 
             </div>
 
-        </div>
+            <!-- COMBO PLAN -->
+            <div class="col-12">
 
-        <!-- COMBO PLAN -->
-        <div class="col-12">
+                <div class="card">
 
-            <div class="card">
+                    <div class="card-header">
 
-                <div class="card-header">
+                        <h5 class="mb-0">
+                            ภาพรวมงบประมาณแยกตาม พ.ร.บ แผนงานต่าง ๆ
+                        </h5>
 
-                    <h5 class="mb-0">
-                        ภาพรวมงบประมาณแยกตาม พ.ร.บ แผนงานต่าง ๆ
-                    </h5>
-
-                </div>
-
-                <div class="card-body">
-
-                    <div *ngIf="chartNotes.plan" class="small text-muted mb-2">
-                        {{ chartNotes.plan }}
                     </div>
-<apx-chart
-    *ngIf="comboChart?.series?.length"
-    [series]="comboChart.series"
-    [chart]="comboChart.chart"
-    [stroke]="comboChart.stroke"
-    [colors]="comboChart.colors"
-    [plotOptions]="comboChart.plotOptions"
-    [dataLabels]="comboChart.dataLabels"
-    [xaxis]="comboChart.xaxis"
-    [yaxis]="comboChart.yaxis"
-    [tooltip]="comboChart.tooltip"
-    [legend]="comboChart.legend">
-</apx-chart>
 
-                    <div *ngIf="!comboChart?.series?.length" class="text-center text-muted py-5">
-                        ไม่พบข้อมูล
+                    <div class="card-body">
+
+                        <div *ngIf="chartNotes.plan" class="small text-muted mb-2">
+                            {{ chartNotes.plan }}
+                        </div>
+                        <apx-chart *ngIf="comboChart?.series?.length" [series]="comboChart.series"
+                            [chart]="comboChart.chart" [stroke]="comboChart.stroke" [colors]="comboChart.colors"
+                            [plotOptions]="comboChart.plotOptions" [dataLabels]="comboChart.dataLabels"
+                            [xaxis]="comboChart.xaxis" [yaxis]="comboChart.yaxis" [tooltip]="comboChart.tooltip"
+                            [legend]="comboChart.legend">
+                        </apx-chart>
+
+                        <div *ngIf="!comboChart?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
                     </div>
 
                 </div>
 
             </div>
 
-        </div>
+            <!-- DEPARTMENT -->
+            <div class="col-12">
 
-        <!-- DEPARTMENT -->
-        <div class="col-12">
+                <div class="card">
 
-            <div class="card">
+                    <div class="card-header">
 
-                <div class="card-header">
+                        <h5 class="mb-0">
+                            ภาพรวมงบประมาณแยกตามหน่วยงานและเปรียบเทียบกับงบประมาณที่ได้รับจัดสรร
+                        </h5>
 
-                    <h5 class="mb-0">
-                        ภาพรวมงบประมาณแยกตามหน่วยงานและเปรียบเทียบกับงบประมาณที่ได้รับจัดสรร
-                    </h5>
-
-                </div>
-
-                <div class="card-body">
-
-                    <div *ngIf="chartNotes.department" class="small text-muted mb-2">
-                        {{ chartNotes.department }}
                     </div>
-<apx-chart
-    *ngIf="comboChart2?.series?.length"
-    [series]="comboChart2.series"
-    [chart]="comboChart2.chart"
-    [stroke]="comboChart2.stroke"
-    [colors]="comboChart2.colors"
-    [plotOptions]="comboChart2.plotOptions"
-    [dataLabels]="comboChart2.dataLabels"
-    [xaxis]="comboChart2.xaxis"
-    [yaxis]="comboChart2.yaxis"
-    [tooltip]="comboChart2.tooltip"
-    [legend]="comboChart2.legend">
-</apx-chart>
 
-                    <div *ngIf="!comboChart2?.series?.length" class="text-center text-muted py-5">
-                        ไม่พบข้อมูล
+                    <div class="card-body">
+
+                        <div *ngIf="chartNotes.department" class="small text-muted mb-2">
+                            {{ chartNotes.department }}
+                        </div>
+                        <apx-chart *ngIf="comboChart2?.series?.length" [series]="comboChart2.series"
+                            [chart]="comboChart2.chart" [stroke]="comboChart2.stroke" [colors]="comboChart2.colors"
+                            [plotOptions]="comboChart2.plotOptions" [dataLabels]="comboChart2.dataLabels"
+                            [xaxis]="comboChart2.xaxis" [yaxis]="comboChart2.yaxis" [tooltip]="comboChart2.tooltip"
+                            [legend]="comboChart2.legend">
+                        </apx-chart>
+
+                        <div *ngIf="!comboChart2?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
                     </div>
 
                 </div>
 
             </div>
 
-        </div>
+            <!-- PIE QUARTER -->
+            <div class="col-xl-6 col-md-12">
 
-    <!-- PIE QUARTER -->
-<div class="col-xl-6 col-md-12">
+                <div class="card h-100">
 
-    <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            ภาพรวมงบประมาณแยกตามไตรมาส
+                        </h5>
+                    </div>
 
-        <div class="card-header">
-            <h5 class="mb-0">
-                ภาพรวมงบประมาณแยกตามไตรมาส
-            </h5>
-        </div>
+                    <div class="card-body">
 
-        <div class="card-body">
+                        <div *ngIf="chartNotes.quarterPie" class="small text-muted mb-2">
+                            {{ chartNotes.quarterPie }}
+                        </div>
 
-            <div *ngIf="chartNotes.quarterPie"
-                 class="small text-muted mb-2">
-                {{ chartNotes.quarterPie }}
+                        <apx-chart *ngIf="pieQuarterChart?.series?.length" [series]="pieQuarterChart.series"
+                            [chart]="pieQuarterChart.chart" [labels]="pieQuarterChart.labels"
+                            [colors]="pieQuarterChart.colors" [tooltip]="pieQuarterChart.tooltip"
+                            [dataLabels]="pieQuarterChart.dataLabels" [legend]="pieQuarterChart.legend">
+                        </apx-chart>
+
+                        <div *ngIf="!pieQuarterChart?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
+                    </div>
+
+                </div>
             </div>
 
-            <apx-chart
-                *ngIf="pieQuarterChart?.series?.length"
-                [series]="pieQuarterChart.series"
-                [chart]="pieQuarterChart.chart"
-                [labels]="pieQuarterChart.labels"
-                [colors]="pieQuarterChart.colors"
-                [tooltip]="pieQuarterChart.tooltip"
-                [dataLabels]="pieQuarterChart.dataLabels"
-                [legend]="pieQuarterChart.legend">
-            </apx-chart>
+            <!-- BAR LINE QUARTER -->
+            <div class="col-xl-6 col-md-12">
 
-            <div *ngIf="!pieQuarterChart?.series?.length"
-                 class="text-center text-muted py-5">
-                ไม่พบข้อมูล
+                <div class="card h-100">
+
+                    <div class="card-header">
+
+                        <h5 class="mb-0">
+                            ภาพรวมงบประมาณแยกตามไตรมาสเทียบผลเบิกจ่าย
+                        </h5>
+
+                    </div>
+
+                    <div class="card-body">
+
+                        <div *ngIf="chartNotes.quarterBar" class="small text-muted mb-2">
+                            {{ chartNotes.quarterBar }}
+                        </div>
+
+                        <apx-chart *ngIf="barLineChart2?.series?.length" [series]="barLineChart2.series"
+                            [chart]="barLineChart2.chart" [colors]="barLineChart2.colors"
+                            [plotOptions]="barLineChart2.plotOptions" [dataLabels]="barLineChart2.dataLabels"
+                            [xaxis]="barLineChart2.xaxis" [yaxis]="barLineChart2.yaxis"
+                            [tooltip]="barLineChart2.tooltip" [legend]="barLineChart2.legend">
+                        </apx-chart>
+
+                        <div *ngIf="!barLineChart2?.series?.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูล
+                        </div>
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
 
     </div>
+
+    <section *ngIf="activeDashboardTab === 'projects'" class="dashboard-tab-panel">
+        <div class="dashboard-filter-panel">
+            <div><label>หน่วยงาน</label><select class="form-select" [(ngModel)]="selectedProjectDepartment"
+                    (ngModelChange)="refreshProjectView()">
+                    <option value="">ทั้งหมด</option>
+                    <option *ngFor="let item of projectDepartmentOptions" [value]="item">{{ item }}</option>
+                </select></div>
+            <div><label>แผนงาน</label><select class="form-select" [(ngModel)]="selectedProjectPlan"
+                    (ngModelChange)="refreshProjectView()">
+                    <option value="">ทั้งหมด</option>
+                    <option *ngFor="let item of projectPlanOptions" [value]="item">{{ item }}</option>
+                </select></div>
+            <div><label>โครงการ/กิจกรรม</label><select class="form-select" [(ngModel)]="selectedProjectName"
+                    (ngModelChange)="refreshProjectView()">
+                    <option value="">ทั้งหมด</option>
+                    <option *ngFor="let item of projectNameOptions" [value]="item">{{ item }}</option>
+                </select></div>
+            <div><label>สถานะการดำเนินงาน</label><select class="form-select" [(ngModel)]="selectedProjectStatus"
+                    (ngModelChange)="refreshProjectView()">
+                    <option value="">ทั้งหมด</option>
+                    <option *ngFor="let status of projectOperationStatusOptions" [value]="status.id">
+                        {{ status.name }} ({{ status.number | number:'1.0-0' }}%)
+                    </option>
+                </select></div>
+            <button type="button" class="btn btn-light dashboard-clear" (click)="clearProjectFilters()"><i
+                    class="ri-filter-off-line"></i> ล้างค่า</button>
+        </div>
+
+        <div class="dashboard-metric-grid">
+            <div class="dashboard-metric blue"><span>โครงการทั้งหมด</span><strong>{{ filteredProjectDashboardRows.length
+                    | number }}</strong><small>โครงการ/รายการ</small></div>
+            <div class="dashboard-metric status-card" *ngFor="let stat of projectStatusSummary" [ngClass]="stat.color">
+                <span>{{ stat.label }}</span><strong>{{ stat.value | number }}</strong><small>โครงการ</small></div>
+            <div class="dashboard-metric navy"><span>งบประมาณรวม</span><strong>{{
+                    dashboardMetric(filteredProjectDashboardRows, 'budget') | number:'1.2-2'
+                    }}</strong><small>บาท</small></div>
+            <div class="dashboard-metric green"><span>ผลการใช้จ่าย</span><strong>{{
+                    dashboardMetric(filteredProjectDashboardRows, 'used') | number:'1.2-2' }}</strong><small>บาท</small>
+            </div>
+            <div class="dashboard-metric cyan"><span>ผลการเบิกจ่าย</span><strong>{{
+                    dashboardMetric(filteredProjectDashboardRows, 'withdraw') | number:'1.2-2'
+                    }}</strong><small>บาท</small></div>
+            <div class="dashboard-metric gray"><span>คงเหลือเบิกจ่าย</span><strong>{{
+                    dashboardMetric(filteredProjectDashboardRows, 'remaining') | number:'1.2-2'
+                    }}</strong><small>บาท</small></div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-xl-4">
+                <div class="card h-100 dashboard-visual-card">
+                    <div class="card-header">
+                        <h5>จำนวนโครงการจำแนกตามสถานะ</h5>
+                    </div>
+                    <div class="card-body project-status-content">
+                        <apx-chart *ngIf="operationStatusChart?.series?.length"
+                            [series]="operationStatusChart.series" [chart]="operationStatusChart.chart"
+                            [labels]="operationStatusChart.labels" [colors]="operationStatusChart.colors"
+                            [plotOptions]="operationStatusChart.plotOptions"
+                            [dataLabels]="operationStatusChart.dataLabels"
+                            [legend]="operationStatusChart.legend"
+                            [tooltip]="operationStatusChart.tooltip"></apx-chart>
+                        <div class="status-breakdown">
+                            <div *ngFor="let stat of operationStatusSummary" class="status-breakdown-row"><span
+                                    class="status-dot" [style.background]="stat.color"></span><span>{{ stat.label }}
+                                    ({{ stat.percent | number:'1.0-0' }}%)</span><strong>{{ stat.value }}</strong></div>
+                        </div>
+                        <div *ngIf="!operationStatusSummary.length" class="text-center text-muted">
+                            ยังไม่มีข้อมูลสถานะการดำเนินงาน
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-5">
+                <div class="card h-100 dashboard-visual-card">
+                    <div class="card-header">
+                        <h5>ผลการใช้จ่ายและเบิกจ่ายรายไตรมาส</h5>
+                    </div>
+                    <div class="card-body"><apx-chart *ngIf="barLineChart2?.series?.length"
+                            [series]="barLineChart2.series" [chart]="barLineChart2.chart"
+                            [colors]="barLineChart2.colors" [plotOptions]="barLineChart2.plotOptions"
+                            [dataLabels]="barLineChart2.dataLabels" [xaxis]="barLineChart2.xaxis"
+                            [yaxis]="barLineChart2.yaxis" [tooltip]="barLineChart2.tooltip"
+                            [legend]="barLineChart2.legend"></apx-chart></div>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="card h-100 dashboard-visual-card">
+                    <div class="card-header">
+                        <h5>ภาพรวมผลการดำเนินงาน</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="result-progress"><span>ผลการใช้จ่าย</span><strong>{{
+                                dashboardMetric(filteredProjectDashboardRows, 'used') | number:'1.2-2' }} บาท</strong>
+                            <div><i
+                                    [style.width.%]="dashboardMetric(filteredProjectDashboardRows, 'budget') ? dashboardMetric(filteredProjectDashboardRows, 'used') * 100 / dashboardMetric(filteredProjectDashboardRows, 'budget') : 0"></i>
+                            </div>
+                        </div>
+                        <div class="result-progress blue"><span>ผลการเบิกจ่าย</span><strong>{{
+                                dashboardMetric(filteredProjectDashboardRows, 'withdraw') | number:'1.2-2' }}
+                                บาท</strong>
+                            <div><i
+                                    [style.width.%]="dashboardMetric(filteredProjectDashboardRows, 'budget') ? dashboardMetric(filteredProjectDashboardRows, 'withdraw') * 100 / dashboardMetric(filteredProjectDashboardRows, 'budget') : 0"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card dashboard-table-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="ri-list-check-2 me-2"></i>รายงานผลการดำเนินงานรายโครงการ</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center">ลำดับ</th>
+                            <th>โครงการ/กิจกรรม</th>
+                            <th>หน่วยงานรับผิดชอบ</th>
+                            <th>สถานะการดำเนินงาน</th>
+                            <th class="text-end">งบประมาณ (บาท)</th>
+                            <th class="text-end">ผลการใช้จ่าย<br>(บาท / %)</th>
+                            <th class="text-end">ผลการเบิกจ่าย<br>(บาท / %)</th>
+                            <th class="text-end">คงเหลือเบิกจ่าย<br>(บาท)</th>
+                            <th class="text-center">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let row of displayedProjectDashboardRows; let i = index; trackBy: trackProjectRow">
+                            <td class="text-center">{{ ((projectPage - 1) * projectPageSize) + i + 1 }}</td>
+                            <td>{{ row.name }}</td>
+                            <td>{{ row.department }}</td>
+                            <td class="project-progress-cell">
+                                <div class="dashboard-progress"><span [style.width.%]="row.progress"
+                                        [style.background]="row.operationColor"></span></div>
+                                <strong [style.color]="row.operationColor">{{ row.progress | number:'1.0-0' }}%</strong>
+                            </td>
+                            <td class="text-end">{{ row.budget | number:'1.2-2' }}</td>
+                            <td class="text-end project-amount-cell">{{ row.used | number:'1.2-2' }}
+                                <small>({{ row.usedPercent | number:'1.2-2' }}%)</small>
+                            </td>
+                            <td class="text-end project-amount-cell">{{ row.withdraw | number:'1.2-2' }}
+                                <small>({{ row.withdrawPercent | number:'1.2-2' }}%)</small>
+                            </td>
+                            <td class="text-end">{{ row.remaining | number:'1.2-2' }}</td>
+                            <td>
+                                <span class="operation-status-badge"
+                                    [style.--operation-color]="row.operationColor">
+                                    {{ row.operationShortName || row.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr *ngIf="!filteredProjectDashboardRows.length">
+                            <td colspan="9" class="text-center text-muted py-5">ไม่พบข้อมูลโครงการ</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="dashboard-pagination" *ngIf="filteredProjectDashboardRows.length > projectPageSize">
+                <span>แสดง {{ ((projectPage - 1) * projectPageSize) + 1 }}–{{ projectPage * projectPageSize >
+                    filteredProjectDashboardRows.length ? filteredProjectDashboardRows.length : projectPage *
+                    projectPageSize }} จาก {{ filteredProjectDashboardRows.length }} รายการ</span>
+                <div><button type="button" (click)="changeProjectPage(-1)" [disabled]="projectPage === 1"><i
+                            class="ri-arrow-left-s-line"></i></button><strong>{{ projectPage }} / {{ projectTotalPages
+                        }}</strong><button type="button" (click)="changeProjectPage(1)"
+                        [disabled]="projectPage === projectTotalPages"><i class="ri-arrow-right-s-line"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section *ngIf="activeDashboardTab === 'carryover'" class="dashboard-tab-panel">
+        <div class="dashboard-metric-grid carryover-grid">
+            <div class="dashboard-metric blue"><span>รายการเงินกันเบิกเหลื่อมปี</span><strong>{{
+                    carryoverDashboardRows.length | number }}</strong><small>รายการ</small></div>
+            <div class="dashboard-metric navy"><span>งบประมาณ</span><strong>{{ dashboardMetric(carryoverDashboardRows,
+                    'budget') | number:'1.2-2' }}</strong><small>บาท</small></div>
+            <div class="dashboard-metric green"><span>ผลการใช้จ่าย</span><strong>{{
+                    dashboardMetric(carryoverDashboardRows, 'used') | number:'1.2-2' }}</strong><small>บาท</small></div>
+            <div class="dashboard-metric cyan"><span>ผลการเบิกจ่าย</span><strong>{{
+                    dashboardMetric(carryoverDashboardRows, 'withdraw') | number:'1.2-2' }}</strong><small>บาท</small>
+            </div>
+            <div class="dashboard-metric gray"><span>คงเหลือเบิกจ่าย</span><strong>{{
+                    dashboardMetric(carryoverDashboardRows, 'remaining') | number:'1.2-2' }}</strong><small>บาท</small>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-xl-4">
+                <div class="card h-100 dashboard-visual-card">
+                    <div class="card-header">
+                        <h5>สัดส่วนผลการเบิกจ่ายต่องบประมาณ</h5>
+                    </div>
+                    <div class="card-body carryover-ring-wrap">
+                        <div class="carryover-ring"
+                            [style.--percent]="dashboardMetric(carryoverDashboardRows, 'budget') ? dashboardMetric(carryoverDashboardRows, 'withdraw') * 100 / dashboardMetric(carryoverDashboardRows, 'budget') : 0">
+                            <strong>{{ dashboardMetric(carryoverDashboardRows, 'budget') ?
+                                (dashboardMetric(carryoverDashboardRows, 'withdraw') * 100 /
+                                dashboardMetric(carryoverDashboardRows, 'budget') | number:'1.2-2') : 0
+                                }}%</strong><span>เบิกจ่าย</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-8">
+                <div class="card h-100 dashboard-visual-card">
+                    <div class="card-header">
+                        <h5>ภาพรวมผลการเบิกจ่ายเงินกันเหลื่อมปี</h5>
+                    </div>
+                    <div class="card-body carryover-bars">
+                        <div *ngFor="let row of carryoverDashboardRows | slice:0:8"><span>{{ row.department }}</span>
+                            <div><i [style.width.%]="row.budget ? row.withdraw * 100 / row.budget : 0"></i></div>
+                            <strong>{{ row.withdraw | number:'1.2-2' }}</strong>
+                        </div>
+                        <div *ngIf="!carryoverDashboardRows.length" class="text-center text-muted py-5">
+                            ไม่พบข้อมูลสำหรับสร้างกราฟ</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card dashboard-table-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="ri-file-list-3-line me-2"></i>รายงานเงินกันเบิกเหลื่อมปี</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center">ลำดับ</th>
+                            <th>หน่วยงาน</th>
+                            <th>ชื่อรายการ</th>
+                            <th class="text-end">งบประมาณ (บาท)</th>
+                            <th class="text-end">ผลการใช้จ่าย (บาท)</th>
+                            <th class="text-end">ผลการเบิกจ่าย (บาท)</th>
+                            <th class="text-end">คงเหลือ (บาท)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            *ngFor="let row of displayedCarryoverDashboardRows; let i = index; trackBy: trackProjectRow">
+                            <td class="text-center">{{ i + 1 }}</td>
+                            <td>{{ row.department }}</td>
+                            <td>{{ row.name }}</td>
+                            <td class="text-end">{{ row.budget | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ row.used | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ row.withdraw | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ row.remaining | number:'1.2-2' }}</td>
+                        </tr>
+                        <tr *ngIf="!carryoverDashboardRows.length">
+                            <td colspan="7" class="text-center text-muted py-5">
+                                ไม่พบข้อมูลเงินกันเบิกเหลื่อมปีในปีงบประมาณที่เลือก</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 
 </div>
 
-        <!-- BAR LINE QUARTER -->
-        <div class="col-xl-6 col-md-12">
-
-            <div class="card h-100">
-
-                <div class="card-header">
-
-                    <h5 class="mb-0">
-                        ภาพรวมงบประมาณแยกตามไตรมาสเทียบผลเบิกจ่าย
-                    </h5>
-
-                </div>
-
-                <div class="card-body">
-
-                    <div *ngIf="chartNotes.quarterBar" class="small text-muted mb-2">
-                        {{ chartNotes.quarterBar }}
-                    </div>
-
-                <apx-chart
-    *ngIf="barLineChart2?.series?.length"
-    [series]="barLineChart2.series"
-    [chart]="barLineChart2.chart"
-    [colors]="barLineChart2.colors"
-    [plotOptions]="barLineChart2.plotOptions"
-    [dataLabels]="barLineChart2.dataLabels"
-    [xaxis]="barLineChart2.xaxis"
-    [yaxis]="barLineChart2.yaxis"
-    [tooltip]="barLineChart2.tooltip"
-    [legend]="barLineChart2.legend">
-</apx-chart>
-
-                    <div *ngIf="!barLineChart2?.series?.length" class="text-center text-muted py-5">
-                        ไม่พบข้อมูล
-                    </div>
-
-                </div>
-
+<div *ngIf="departmentBudgetModal" class="department-budget-backdrop"
+    (click)="closeDepartmentBudgetModal()">
+    <div class="department-budget-modal" (click)="$event.stopPropagation()">
+        <div class="department-budget-modal-header">
+            <h3 class="text-white"><i class="ri-building-4-line"></i> รายละเอียดงบประมาณ : {{ departmentBudgetModal.departmentName }}</h3>
+            <button type="button" aria-label="ปิด" (click)="closeDepartmentBudgetModal()"><i
+                    class="ri-close-line"></i></button>
+        </div>
+        <div class="department-budget-modal-body">
+            <div class="department-summary-grid">
+                <div class="department-summary-card budget"><span>งบประมาณรวม</span><strong>{{
+                        departmentBudgetModal.budget | number:'1.2-2' }}</strong><small>บาท</small></div>
+                <div class="department-summary-card used"><span>ผลการใช้จ่าย</span><strong>{{
+                        departmentBudgetModal.used | number:'1.2-2' }}</strong><small>บาท <b>{{
+                            departmentBudgetModal.usedPercent | number:'1.2-2' }}%</b></small></div>
+                <div class="department-summary-card withdraw"><span>ผลการเบิกจ่าย</span><strong>{{
+                        departmentBudgetModal.withdraw | number:'1.2-2' }}</strong><small>บาท <b>{{
+                            departmentBudgetModal.withdrawPercent | number:'1.2-2' }}%</b></small></div>
+                <div class="department-summary-card remaining"><span>คงเหลือเบิกจ่าย</span><strong>{{
+                        departmentBudgetModal.remaining | number:'1.2-2' }}</strong><small>บาท <b>{{
+                            departmentBudgetModal.remainingPercent | number:'1.2-2' }}%</b></small></div>
             </div>
 
+            <div class="department-detail-title">
+                <h4><i class="ri-list-check-2"></i> รายการค่าใช้จ่ายในหน่วยงาน</h4>
+                <button type="button" (click)="exportDepartmentBudgetExcel()"><i class="ri-file-excel-2-line"></i>
+                    ส่งออก Excel</button>
+            </div>
+            <div class="table-responsive department-detail-table">
+                <table class="table align-middle mb-0">
+                    <thead><tr><th class="text-center">ลำดับ</th><th>ชื่อค่าใช้จ่าย</th>
+                        <th class="text-end">งบประมาณ (บาท)</th><th class="text-end">ผลการใช้จ่าย (บาท)</th>
+                        <th>% ใช้จ่าย</th><th class="text-end">ผลการเบิกจ่าย (บาท)</th>
+                        <th>% เบิกจ่าย</th><th class="text-end">คงเหลือเบิกจ่าย (บาท)</th></tr></thead>
+                    <tbody>
+                        <tr *ngFor="let item of departmentBudgetModal.items; let i = index">
+                            <td class="text-center">{{ i + 1 }}</td><td>{{ item.name }}</td>
+                            <td class="text-end">{{ item.budget | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ item.used | number:'1.2-2' }}</td>
+                            <td><div class="modal-percent green"><span [style.width.%]="item.usedPercent"></span><b>{{ item.usedPercent | number:'1.2-2' }}%</b></div></td>
+                            <td class="text-end">{{ item.withdraw | number:'1.2-2' }}</td>
+                            <td><div class="modal-percent blue"><span [style.width.%]="item.withdrawPercent"></span><b>{{ item.withdrawPercent | number:'1.2-2' }}%</b></div></td>
+                            <td class="text-end">{{ item.remaining | number:'1.2-2' }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot><tr><th colspan="2" class="text-center">รวม</th>
+                        <th class="text-end">{{ departmentBudgetModal.budget | number:'1.2-2' }}</th>
+                        <th class="text-end">{{ departmentBudgetModal.used | number:'1.2-2' }}</th>
+                        <th>{{ departmentBudgetModal.usedPercent | number:'1.2-2' }}%</th>
+                        <th class="text-end">{{ departmentBudgetModal.withdraw | number:'1.2-2' }}</th>
+                        <th>{{ departmentBudgetModal.withdrawPercent | number:'1.2-2' }}%</th>
+                        <th class="text-end">{{ departmentBudgetModal.remaining | number:'1.2-2' }}</th></tr></tfoot>
+                </table>
+            </div>
         </div>
-
     </div>
+</div>
 
+<div *ngIf="departmentBudgetLoading" class="department-budget-loading">
+    <div class="department-loading-box">
+        <span class="department-loading-spinner"></span>
+        <strong>กำลังโหลดรายละเอียดงบประมาณ...</strong>
+    </div>
 </div>

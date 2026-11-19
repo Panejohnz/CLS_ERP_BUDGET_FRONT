@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { EbudgetService } from 'src/app/core/services/ebudget.service';
 import { BudgetYearService } from 'src/app/core/services/budget-year.service';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-projects',
@@ -13,16 +14,242 @@ export class ProjectsComponent implements OnInit {
 
   constructor(
     private servicebud: EbudgetService,
-    private budgetYearService: BudgetYearService
+    private budgetYearService: BudgetYearService,
+    private ngZone: NgZone
   ) { }
 
   breadCrumbItems: any[] = [];
   statData: any[] = [];
   dashboardData: any[] = [];
+  activeDashboardTab: 'overview' | 'projects' | 'carryover' = 'overview';
+  selectedProjectDepartment = '';
+  selectedProjectPlan = '';
+  selectedProjectName = '';
+  selectedProjectStatus = '';
+  budgetGroupFilters: Record<string, boolean> = {
+    personnel: true,
+    operating: true,
+    investment: true,
+    subsidy: true,
+    other: true
+  };
   currentYear = 0;
   selectedDepartmentId = 0;
   private dashboardLoadVersion = 0;
   private readonly investmentExpenseIds = [54, 55];
+  private readonly dashboardMetricCache = new WeakMap<any[], Record<string, number>>();
+  projectDashboardRows: any[] = [];
+  filteredProjectDashboardRows: any[] = [];
+  displayedProjectDashboardRows: any[] = [];
+  carryoverDashboardRows: any[] = [];
+  displayedCarryoverDashboardRows: any[] = [];
+  projectStatusSummary: any[] = [];
+  operationStatusSummary: any[] = [];
+  operationStatusChart: any = { series: [] };
+  projectOperationStatusOptions: any[] = [];
+  projectDepartmentOptions: string[] = [];
+  projectPlanOptions: string[] = [];
+  projectNameOptions: string[] = [];
+  projectPage = 1;
+  readonly projectPageSize = 25;
+  departmentBudgetModal: any = null;
+  departmentBudgetLoading = false;
+
+  get projectTotalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredProjectDashboardRows.length / this.projectPageSize));
+  }
+
+  setDashboardTab(tab: 'overview' | 'projects' | 'carryover'): void {
+    this.activeDashboardTab = tab;
+    if (tab !== 'overview' && this.projectDashboardRows.length === 0 && this.dashboardData.length > 0) {
+      this.refreshProjectView(true);
+    }
+  }
+
+  toggleBudgetGroup(group: string, checked: boolean): void {
+    this.budgetGroupFilters[group] = checked;
+    this.bindDashboard();
+  }
+
+  clearProjectFilters(): void {
+    this.selectedProjectDepartment = '';
+    this.selectedProjectPlan = '';
+    this.selectedProjectName = '';
+    this.selectedProjectStatus = '';
+    this.refreshProjectView();
+  }
+
+  refreshProjectView(rebuildRows: boolean = false): void {
+    if (rebuildRows) {
+      this.projectDashboardRows = this.buildProjectDashboardRows();
+      this.projectDepartmentOptions = this.uniqueProjectValues('department');
+      this.projectPlanOptions = this.uniqueProjectValues('plan');
+      this.projectNameOptions = this.uniqueProjectValues('name');
+      this.projectOperationStatusOptions = Array.from(
+        new Map(
+          this.projectDashboardRows
+            .filter((row: any) => row.operationStatusId > 0)
+            .map((row: any) => [row.operationStatusId, {
+              id: row.operationStatusId,
+              name: row.status,
+              number: row.progress,
+              color: row.operationColor
+            }])
+        ).values()
+      ).sort((a: any, b: any) => a.number - b.number);
+      this.carryoverDashboardRows = this.projectDashboardRows.filter((row: any) => row.isCarryOver);
+      this.displayedCarryoverDashboardRows = this.carryoverDashboardRows.slice(0, 50);
+    }
+
+    this.filteredProjectDashboardRows = this.projectDashboardRows.filter((row: any) =>
+      (!this.selectedProjectDepartment || row.department === this.selectedProjectDepartment) &&
+      (!this.selectedProjectPlan || row.plan === this.selectedProjectPlan) &&
+      (!this.selectedProjectName || row.name === this.selectedProjectName) &&
+      (!this.selectedProjectStatus || String(row.operationStatusId) === String(this.selectedProjectStatus))
+    );
+    const rows = this.filteredProjectDashboardRows;
+    this.projectStatusSummary = [
+      { key: 'complete', label: 'ดำเนินการเสร็จสิ้น', value: rows.filter(x => x.progress >= 100).length, color: 'green' },
+      { key: 'progress', label: 'อยู่ระหว่างดำเนินการ', value: rows.filter(x => x.progress > 0 && x.progress < 100).length, color: 'orange' },
+      { key: 'not-started', label: 'ยังไม่ดำเนินการ', value: rows.filter(x => x.progress <= 0).length, color: 'red' }
+    ];
+    const operationMap = new Map<number, any>();
+    rows.forEach((row: any) => {
+      const id = Number(row.operationStatusId || 0);
+      if (id <= 0) return;
+      const status = operationMap.get(id) || {
+        id,
+        label: row.status,
+        percent: row.progress,
+        color: row.operationColor || '#1688ef',
+        value: 0
+      };
+      status.value += 1;
+      operationMap.set(id, status);
+    });
+    this.operationStatusSummary = Array.from(operationMap.values())
+      .sort((a: any, b: any) => a.percent - b.percent);
+    this.operationStatusChart = {
+      series: this.operationStatusSummary.map((item: any) => item.value),
+      labels: this.operationStatusSummary.map((item: any) => item.label),
+      colors: this.operationStatusSummary.map((item: any) => item.color),
+      chart: { type: 'donut', height: 260 },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '58%',
+            labels: {
+              show: true,
+              name: { show: true },
+              value: { show: true },
+              total: {
+                show: true,
+                label: 'โครงการ',
+                formatter: () => String(rows.length)
+              }
+            }
+          }
+        }
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: (value: number) => `${value.toFixed(0)}%`
+      },
+      legend: { show: false },
+      tooltip: {
+        y: { formatter: (value: number) => `${value} โครงการ` }
+      }
+    };
+    this.projectPage = 1;
+    this.updateProjectPage();
+  }
+
+  changeProjectPage(direction: number): void {
+    const nextPage = this.projectPage + direction;
+    if (nextPage < 1 || nextPage > this.projectTotalPages) return;
+    this.projectPage = nextPage;
+    this.updateProjectPage();
+  }
+
+  trackProjectRow(_index: number, row: any): any {
+    return row?.budgetPlanId || row?.name;
+  }
+
+  private updateProjectPage(): void {
+    const start = (this.projectPage - 1) * this.projectPageSize;
+    this.displayedProjectDashboardRows = this.filteredProjectDashboardRows.slice(start, start + this.projectPageSize);
+  }
+
+  private buildProjectDashboardRows(): any[] {
+    const grouped = new Map<string, any>();
+
+    (this.dashboardData || []).forEach((row: any) => {
+      const key = String(
+        row?.Budget_Plan_Id || row?.Fk_Budget_Plan_Id ||
+        row?.Project_Id || row?.FK_Project_Id ||
+        `${row?.Department_Id || 0}_${row?.Project_Name || row?.Plan_Name || row?.Expense_List || '-'}`
+      );
+      const current = grouped.get(key) || {
+        budgetPlanId: row?.Budget_Plan_Id || row?.Fk_Budget_Plan_Id || 0,
+        name: row?.Project_Name || row?.Plan_Name || row?.Expense_List || 'ไม่ระบุชื่อโครงการ/รายการ',
+        department: row?.Department_Name || row?.Department_Short_Name || '-',
+        status: row?.Operation_Status_Name || row?.Status_Name || '-',
+        operationStatusId: Number(row?.Operation_Status_Id || 0),
+        progressPercent: row?.Progress_Percent,
+        operationNumber: this.toDashboardNumber(row?.Operation_Number),
+        operationColor: row?.Operation_Color_Code || '#1688ef',
+        operationShortName: row?.Operation_Short_Name || row?.Operation_Status_Name || '-',
+        isCarryOver: row?.Is_Carry_Over === true || Number(row?.Is_Carry_Over) === 1,
+        plan: row?.Plan_Name || '-',
+        budget: 0,
+        used: 0,
+        withdraw: 0
+      };
+
+      current.budget += this.toDashboardNumber(row?.Adjust || row?.Total_Plan);
+      current.used += this.toDashboardNumber(row?.Sum_Used);
+      current.withdraw += this.toDashboardNumber(row?.Sum_Withdraw);
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.values()).map((row: any) => {
+      const reportedProgress = row.operationNumber > 0
+        ? row.operationNumber
+        : this.toDashboardNumber(row.progressPercent);
+      const progress = row.progressPercent !== null && row.progressPercent !== undefined && row.progressPercent !== ''
+        ? Math.min(100, reportedProgress)
+        : row.budget > 0 ? Math.min(100, (row.withdraw / row.budget) * 100) : 0;
+
+      return {
+        ...row,
+        remaining: row.budget - row.withdraw,
+        usedPercent: row.budget > 0 ? Math.min(100, (row.used / row.budget) * 100) : 0,
+        withdrawPercent: row.budget > 0 ? Math.min(100, (row.withdraw / row.budget) * 100) : 0,
+        progress,
+        progressStatus: progress >= 100 ? 'complete' : progress > 0 ? 'progress' : 'not-started'
+      };
+    });
+  }
+
+  private uniqueProjectValues(field: string): string[] {
+    return Array.from(new Set(this.projectDashboardRows.map((row: any) => row?.[field]).filter(Boolean))).sort();
+  }
+
+  dashboardMetric(rows: any[], field: 'budget' | 'used' | 'withdraw' | 'remaining'): number {
+    const source = rows || [];
+    let cached = this.dashboardMetricCache.get(source);
+    if (!cached) {
+      cached = {};
+      this.dashboardMetricCache.set(source, cached);
+    }
+    if (cached[field] === undefined) {
+      cached[field] = source.reduce(
+        (total: number, row: any) => total + this.toDashboardNumber(row?.[field]),
+        0
+      );
+    }
+    return cached[field];
+  }
 
   chartNotes = {
     pieBudgetType: '',
@@ -394,7 +621,9 @@ getDashboard() {
   }
 
   bindDashboard() {
-    const data = this.dashboardData || [];
+    const data = (this.dashboardData || []).filter((row: any) =>
+      this.budgetGroupFilters[this.getBudgetGroupKey(row)] !== false
+    );
 
     const totalBudget = this.sum(data, 'Total_Plan');
     const totalAdjust = this.sum(data, 'Adjust');
@@ -463,6 +692,7 @@ getDashboard() {
     // เพื่อให้ผลรวมยอดเบิกจ่ายทั้ง 4 ไตรมาสตรงกับการ์ดภาพรวมงบประมาณ
     this.bindQuarterBarChart(data);
     this.bindQuarterPieChart(data);
+    this.refreshProjectView(true);
   }
 
   // กราฟวงกลมหมวดงบ //
@@ -1031,6 +1261,7 @@ bindDepartmentChart(data: any[]) {
     !this.hasAnyNonZero(data, ['Total_Plan', 'Adjust', 'Sum_Withdraw']);
 
   const map = new Map<string, {
+    departmentId: any;
     label: string;
     departmentType: any;
     departmentCostCode: any;
@@ -1053,6 +1284,7 @@ bindDepartmentChart(data: any[]) {
 
     if (!map.has(key)) {
       map.set(key, {
+        departmentId,
         label,
         departmentType: this.getDepartmentField(x, 'Department_Type'),
         departmentCostCode: this.getDepartmentField(x, 'Department_Cost_Code'),
@@ -1127,6 +1359,18 @@ bindDepartmentChart(data: any[]) {
 
   this.comboChart2 = {
     ...this.comboChart2,
+
+    chart: {
+      ...this.comboChart2.chart,
+      events: {
+        xAxisLabelClick: (_event: any, _chartContext: any, config: any) => {
+          this.openDepartmentBudgetModal(rows[config?.labelIndex]?.departmentId);
+        },
+        dataPointSelection: (_event: any, _chartContext: any, config: any) => {
+          this.openDepartmentBudgetModal(rows[config?.dataPointIndex]?.departmentId);
+        }
+      }
+    },
 
     plotOptions: {
       bar: {
@@ -1490,6 +1734,103 @@ bindQuarterBarChart(data: any[]) {
     ? ''
     : 'ยังไม่มีข้อมูลยอดรายไตรมาสสำหรับการแสดงกราฟ';
 }
+
+openDepartmentBudgetModal(departmentId: any): void {
+  if (departmentId === undefined || departmentId === null || departmentId === '') return;
+  this.ngZone.run(() => {
+    this.departmentBudgetLoading = true;
+    this.departmentBudgetModal = null;
+    setTimeout(() => this.buildDepartmentBudgetModal(departmentId), 50);
+  });
+}
+
+private buildDepartmentBudgetModal(departmentId: any): void {
+
+  const source = (this.dashboardData || []).filter((row: any) =>
+    String(row?.Department_Id ?? row?.Fk_Department_Id) === String(departmentId) &&
+    this.budgetGroupFilters[this.getBudgetGroupKey(row)] !== false
+  );
+  if (!source.length) {
+    this.departmentBudgetLoading = false;
+    return;
+  }
+
+  const useAdjust = this.sum(source, 'Adjust') !== 0;
+  const expenseMap = new Map<string, any>();
+  source.forEach((row: any) => {
+    const name = row?.Expense_Name || row?.Expense_List || row?.Expense_Type_Name || 'ไม่ระบุชื่อค่าใช้จ่าย';
+    const key = String(row?.Expense_Id || row?.Fk_Expense_Id || name);
+    const item = expenseMap.get(key) || { name, budget: 0, used: 0, withdraw: 0 };
+    item.budget += this.toDashboardNumber(useAdjust ? row?.Adjust : row?.Total_Plan);
+    item.used += this.toDashboardNumber(row?.Sum_Used);
+    item.withdraw += this.toDashboardNumber(row?.Sum_Withdraw);
+    expenseMap.set(key, item);
+  });
+
+  const items = Array.from(expenseMap.values()).map((item: any) => ({
+    ...item,
+    usedPercent: item.budget > 0 ? item.used * 100 / item.budget : 0,
+    withdrawPercent: item.budget > 0 ? item.withdraw * 100 / item.budget : 0,
+    remaining: item.budget - item.withdraw
+  }));
+  const budget = items.reduce((sum: number, item: any) => sum + item.budget, 0);
+  const used = items.reduce((sum: number, item: any) => sum + item.used, 0);
+  const withdraw = items.reduce((sum: number, item: any) => sum + item.withdraw, 0);
+
+  const modalData = {
+    departmentId,
+    departmentName: source[0]?.Department_Name || source[0]?.Department_Short_Name || '-',
+    items,
+    budget,
+    used,
+    withdraw,
+    remaining: budget - withdraw,
+    usedPercent: budget > 0 ? used * 100 / budget : 0,
+    withdrawPercent: budget > 0 ? withdraw * 100 / budget : 0,
+    remainingPercent: budget > 0 ? (budget - withdraw) * 100 / budget : 0
+  };
+  // Keep the loading state visible long enough to give clear click feedback.
+  setTimeout(() => {
+    this.departmentBudgetModal = modalData;
+    this.departmentBudgetLoading = false;
+  }, 250);
+}
+
+closeDepartmentBudgetModal(): void {
+  this.departmentBudgetModal = null;
+  this.departmentBudgetLoading = false;
+}
+
+exportDepartmentBudgetExcel(): void {
+  const modal = this.departmentBudgetModal;
+  if (!modal) return;
+  const rows = modal.items.map((item: any, index: number) => ({
+    'ลำดับ': index + 1,
+    'ชื่อค่าใช้จ่าย': item.name,
+    'งบประมาณ (บาท)': item.budget,
+    'ผลการใช้จ่าย (บาท)': item.used,
+    '% ใช้จ่าย': item.usedPercent,
+    'ผลการเบิกจ่าย (บาท)': item.withdraw,
+    '% เบิกจ่าย': item.withdrawPercent,
+    'คงเหลือเบิกจ่าย (บาท)': item.remaining
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'รายละเอียดงบประมาณ');
+  XLSX.writeFile(workbook, `รายละเอียดงบประมาณ_${modal.departmentName}.xlsx`);
+}
+
+  private getBudgetGroupKey(row: any): string {
+    const expenseId = Number(row?.Expense_Id || row?.Fk_Expense_List || row?.Fk_Expense_Id || 0);
+    const typeId = Number(row?.Budget_Type_Id || row?.Fk_Budget_Type || 0);
+    const text = `${row?.Budget_Type_Name || ''} ${row?.Expense_Type || ''} ${row?.Expense_List || ''}`;
+
+    if (/บุคลากร|เงินเดือน|ค่าจ้างประจำ/.test(text) || typeId === 1) return 'personnel';
+    if (this.investmentExpenseIds.includes(expenseId) || /ลงทุน/.test(text) || typeId === 3) return 'investment';
+    if (/อุดหนุน/.test(text) || typeId === 4) return 'subsidy';
+    if (/รายจ่ายอื่น/.test(text) || typeId === 5) return 'other';
+    return 'operating';
+  }
 
   sum(data: any[], field: string): number {
     return data.reduce((s: number, x: any) => s + Number(x[field] || 0), 0);

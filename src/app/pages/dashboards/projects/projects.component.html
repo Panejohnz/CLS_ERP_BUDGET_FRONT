@@ -8,10 +8,10 @@
             (click)="setDashboardTab('overview')">
             <i class="ri-dashboard-line"></i><span>ภาพรวม</span>
         </button>
-        <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'projects'"
+        <!-- <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'projects'"
             (click)="setDashboardTab('projects')">
             <i class="ri-folder-3-line"></i><span>โครงการ</span>
-        </button>
+        </button> -->
         <!-- <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'carryover'"
             (click)="setDashboardTab('carryover')">
             <i class="ri-calendar-check-line"></i><span>เงินกันเบิกเหลื่อมปี</span>
@@ -20,7 +20,7 @@
 
     <div [hidden]="activeDashboardTab !== 'overview'">
 
-        <div style="font-size: 16px;" class="budget-filter-strip">
+        <div class="budget-filter-strip">
             <label><input type="checkbox" [checked]="budgetGroupFilters['personnel']"
                     (change)="toggleBudgetGroup('personnel', $any($event.target).checked)"> งบบุคลากร</label>
             <label><input type="checkbox" [checked]="budgetGroupFilters['operating']"

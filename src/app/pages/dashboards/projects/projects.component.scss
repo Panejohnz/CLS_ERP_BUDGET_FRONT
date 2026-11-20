@@ -12,7 +12,7 @@
   border-radius: 10px 10px 0 0;
   background: #f3f7fd;
   color: #183b70;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   transition: .2s ease;
 
@@ -22,9 +22,9 @@
 }
 
 .dashboard-tab-panel { animation: dashboardFade .2s ease; }
-.budget-filter-strip { display: flex; align-items: center; justify-content: space-around; gap: 18px; margin: -5px 0 12px; padding: 11px 18px; border: 1px solid #dce9f8; border-radius: 11px; background: #fff; box-shadow: 0 2px 7px rgba(20, 74, 135, .05); }
+.budget-filter-strip { font-size: 24px; display: flex; align-items: center; justify-content: space-around; gap: 18px; margin: -5px 0 12px; padding: 11px 18px; border: 1px solid #dce9f8; border-radius: 11px; background: #fff; box-shadow: 0 2px 7px rgba(20, 74, 135, .05); }
 .budget-filter-strip label { margin: 0; color: #173d71; font-weight: 600; cursor: pointer; }
-.budget-filter-strip input { width: 17px; height: 17px; margin-right: 7px; vertical-align: -3px; accent-color: #0878e8; }
+.budget-filter-strip input { width: 21px; height: 21px; margin-right: 7px; vertical-align: -3px; accent-color: #0878e8; }
 .dashboard-filter-panel { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)) auto; gap: 14px; align-items: end; margin-bottom: 14px; padding: 14px 18px; border: 1px solid #dce8f7; border-radius: 13px; background: #fff; }
 .dashboard-filter-panel label { display: block; margin-bottom: 5px; color: #193c6e; font-weight: 600; }
 .dashboard-filter-panel .form-select { border-color: #c9d9ed; }
@@ -37,7 +37,7 @@
 .dashboard-metric.green::before { background: #22a447; }.dashboard-metric.cyan::before { background: #1688e8; }.dashboard-metric.gray::before { background: #8493a8; }.dashboard-metric.navy::before { background: #174f9d; }
 .dashboard-metric.orange::before { background: #f2a51b; }.dashboard-metric.red::before { background: #e44747; }
 .dashboard-visual-card { border: 1px solid #dce8f6; border-radius: 14px; box-shadow: 0 3px 12px rgba(20, 74, 135, .08); }
-.dashboard-visual-card .card-header { background: #fff; }.dashboard-visual-card h5 { margin: 0; color: #153d75; font-size: 16px; }
+.dashboard-visual-card .card-header { background: #fff; }.dashboard-visual-card h5 { margin: 0; color: #153d75; font-size: 18px; }
 .status-breakdown { display: flex; flex-direction: column; justify-content: center; gap: 17px; }
 .project-status-content { display: grid; grid-template-columns: minmax(170px, .9fr) minmax(190px, 1.1fr); gap: 8px; align-items: center; }
 .status-breakdown-row { display: grid; grid-template-columns: 15px 1fr auto; gap: 10px; align-items: center; color: #344b69; }
@@ -64,7 +64,7 @@
 
 // Project tab: retain prominent values, but make labels, filters and table
 // content readable at the requested 16px baseline.
-.projects-dashboard-panel { font-size: 16px; }
+.projects-dashboard-panel { font-size: 18px; }
 .projects-dashboard-panel .dashboard-filter-panel label,
 .projects-dashboard-panel .form-select,
 .projects-dashboard-panel .dashboard-clear,
@@ -77,10 +77,10 @@
 .projects-dashboard-panel .dashboard-table-card td,
 .projects-dashboard-panel .dashboard-pagination,
 .projects-dashboard-panel .project-amount-cell small,
-.projects-dashboard-panel .operation-status-badge { font-size: 16px; }
+.projects-dashboard-panel .operation-status-badge { font-size: 18px; }
 .projects-dashboard-panel .dashboard-visual-card h5,
 .projects-dashboard-panel .dashboard-table-card h5 { font-size: 18px; }
-.projects-dashboard-panel .project-progress-cell strong { font-size: 16px; }
+.projects-dashboard-panel .project-progress-cell strong { font-size: 18px; }
 
 @keyframes dashboardFade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 

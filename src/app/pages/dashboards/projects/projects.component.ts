@@ -183,7 +183,10 @@ export class ProjectsComponent implements OnInit {
   private buildProjectDashboardRows(): any[] {
     const grouped = new Map<string, any>();
 
-    (this.dashboardData || []).forEach((row: any) => {
+    // The project dashboard must not include recurring expense rows such as
+    // salaries.  Keep only records explicitly linked to a project (or with a
+    // project name supplied by the API).
+    (this.dashboardData || []).filter((row: any) => this.isProjectDashboardRow(row)).forEach((row: any) => {
       const key = String(
         row?.Budget_Plan_Id || row?.Fk_Budget_Plan_Id ||
         row?.Project_Id || row?.FK_Project_Id ||
@@ -233,6 +236,15 @@ export class ProjectsComponent implements OnInit {
 
   private uniqueProjectValues(field: string): string[] {
     return Array.from(new Set(this.projectDashboardRows.map((row: any) => row?.[field]).filter(Boolean))).sort();
+  }
+
+  private isProjectDashboardRow(row: any): boolean {
+    const projectId = row?.Project_Id ?? row?.FK_Project_Id ?? row?.Fk_Project_Id;
+    if (projectId !== null && projectId !== undefined && String(projectId).trim() !== '') {
+      return Number.isNaN(Number(projectId)) || Number(projectId) > 0;
+    }
+
+    return String(row?.Project_Name ?? '').trim().length > 0;
   }
 
   dashboardMetric(rows: any[], field: 'budget' | 'used' | 'withdraw' | 'remaining'): number {

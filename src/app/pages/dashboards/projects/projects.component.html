@@ -306,7 +306,7 @@
                     class="ri-filter-off-line"></i> ล้างค่า</button>
         </div>
 
-        <div style="font-size: 16px;"  class="dashboard-metric-grid">
+        <div class="dashboard-metric-grid">
             <div class="dashboard-metric blue"><span>โครงการทั้งหมด</span><strong>{{ filteredProjectDashboardRows.length
                     | number }}</strong><small>โครงการ/รายการ</small></div>
             <div class="dashboard-metric status-card" *ngFor="let stat of projectStatusSummary" [ngClass]="stat.color">

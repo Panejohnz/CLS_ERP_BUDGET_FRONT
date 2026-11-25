@@ -37,6 +37,7 @@ export class ProjectsComponent implements OnInit {
   selectedDepartmentId = 0;
   private dashboardLoadVersion = 0;
   private readonly investmentExpenseIds = [54, 55];
+  private readonly projectReportExpenseIds = [64, 70, 73, 74, 75];
   private readonly dashboardMetricCache = new WeakMap<any[], Record<string, number>>();
   projectDashboardRows: any[] = [];
   filteredProjectDashboardRows: any[] = [];
@@ -183,9 +184,7 @@ export class ProjectsComponent implements OnInit {
   private buildProjectDashboardRows(): any[] {
     const grouped = new Map<string, any>();
 
-    // The project dashboard must not include recurring expense rows such as
-    // salaries.  Keep only records explicitly linked to a project (or with a
-    // project name supplied by the API).
+    // The project report is limited to the configured project expense items.
     (this.dashboardData || []).filter((row: any) => this.isProjectDashboardRow(row)).forEach((row: any) => {
       const key = String(
         row?.Budget_Plan_Id || row?.Fk_Budget_Plan_Id ||
@@ -239,12 +238,7 @@ export class ProjectsComponent implements OnInit {
   }
 
   private isProjectDashboardRow(row: any): boolean {
-    const projectId = row?.Project_Id ?? row?.FK_Project_Id ?? row?.Fk_Project_Id;
-    if (projectId !== null && projectId !== undefined && String(projectId).trim() !== '') {
-      return Number.isNaN(Number(projectId)) || Number(projectId) > 0;
-    }
-
-    return String(row?.Project_Name ?? '').trim().length > 0;
+    return this.projectReportExpenseIds.includes(this.getExpenseId(row));
   }
 
   dashboardMetric(rows: any[], field: 'budget' | 'used' | 'withdraw' | 'remaining'): number {

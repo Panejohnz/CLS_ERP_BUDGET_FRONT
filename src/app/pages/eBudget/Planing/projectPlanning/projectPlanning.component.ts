@@ -18,6 +18,7 @@ import { AuthenticationService } from 'src/app/core/services/auth.service';
 import { FormsModule } from '@angular/forms';
 import { ProjectPlanService } from 'src/app/core/services/ProjectPlan.service'
 import { BudgetYearService } from 'src/app/core/services/budget-year.service';
+import { log } from 'mathjs';
 @Component({
   selector: 'projectPlanning',
   providers: [GridJsService, DecimalPipe, EbudgetService],
@@ -866,12 +867,17 @@ export class ProjectPlanningComponent {
     const data =
       this.project_planing?.Project_Plan ||
       this.project_planing;
+    const savedProjectId = Number(
+      this.project_planing?.Project_Id ||
+      data?.Project_Id ||
+      0
+    );
 
     const payload = {
 
       BgYear: this.currentYear,
 
-      Project_Id: data.Project_Id,
+      Project_Id: savedProjectId,
 
       Department_Id: getId(
         this.project_planing.selectedDepartment,
@@ -977,7 +983,7 @@ export class ProjectPlanningComponent {
       this.createProjectDetailPayload();
 
     const model = {
-      FUNC_CODE: this.project_planing.Project_Id > 0
+      FUNC_CODE: savedProjectId > 0
         ? "FUNC-Update_Project_Plan"
         : "FUNC-Insert_Project_Plan",
 
@@ -1000,11 +1006,23 @@ export class ProjectPlanningComponent {
     };
 
     this.serviceebud.GatewayGetData(model).subscribe(async (response: any) => {
+      const saveResult = response?.RESULT ?? response?.Result ?? response?.result;
+      if (saveResult) {
+        await basicAlert('error', 'บันทึกข้อมูลไม่สำเร็จ', String(saveResult));
+        return;
+      }
+
       this.applySavedProjectId(response);
+      // The main project save has completed at this point. Refresh the list
+      // independently from the secondary attachment upload result.
+      this.get_data();
 
       try {
+        await this.ensureSavedProjectId(payload);
         await this.uploadProjectPrincipleFiles();
       } catch (error) {
+        console.log ('Failed to upload principle files:', error);
+
         await basicAlert(
           'warning',
           'บันทึกข้อมูลแล้ว แต่แนบไฟล์ไม่สำเร็จ',
@@ -1014,7 +1032,6 @@ export class ProjectPlanningComponent {
       }
 
       await basicAlert('success', 'บันทึกข้อมูลแล้ว', '');
-      this.get_data();
       modal.dismiss();
     });
   }
@@ -1058,6 +1075,50 @@ export class ProjectPlanningComponent {
     if (this.project_planing.Project_Plan) {
       this.project_planing.Project_Plan.Project_Id = projectId;
     }
+  }
+
+  private ensureSavedProjectId(payload: any): Promise<void> {
+    const currentProjectId = Number(
+      this.project_planing?.Project_Id ||
+      this.project_planing?.Project_Plan?.Project_Id ||
+      0
+    );
+
+    if (currentProjectId > 0) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      this.serviceebud.GatewayGetData({
+        FUNC_CODE: 'FUNC-Get_Project_Plan',
+        BgYear: payload?.BgYear || this.currentYear
+      }).subscribe({
+        next: (response: any) => {
+          const rawList = response?.List_Project_Plan_Data_Table?.Data;
+          const list = Array.isArray(rawList) ? rawList : [];
+          const matches = list.filter((item: any) =>
+            String(item?.Project_Name || '').trim() === String(payload?.Project_Name || '').trim() &&
+            String(item?.Department_Id || '') === String(payload?.Department_Id || '') &&
+            (!payload?.Fk_Expense_List || String(item?.Fk_Expense_List || item?.Expense_Id || '') === String(payload.Fk_Expense_List)) &&
+            (!payload?.Fk_Plan_Id || String(item?.Fk_Plan_Id || item?.Plan_Id || '') === String(payload.Fk_Plan_Id))
+          ).sort((left: any, right: any) =>
+            Number(right?.Project_Id || 0) - Number(left?.Project_Id || 0)
+          );
+
+          const projectId = Number(matches[0]?.Project_Id || 0);
+          if (projectId <= 0) {
+            reject('ไม่พบ Project_Id ของโครงการที่เพิ่งบันทึก');
+            return;
+          }
+
+          this.project_planing.Project_Id = projectId;
+          this.project_planing.Project_Plan = this.project_planing.Project_Plan || {};
+          this.project_planing.Project_Plan.Project_Id = projectId;
+          resolve();
+        },
+        error: error => reject(error)
+      });
+    });
   }
 
   private extractProjectPrincipleFiles(response: any, projectId: any): any[] {
@@ -1306,7 +1367,14 @@ export class ProjectPlanningComponent {
 
     return new Promise((resolve, reject) => {
       this.serviceebud.UploadData(formData).subscribe({
-        next: () => resolve(),
+        next: (response: any) => {
+          const result = response?.RESULT ?? response?.Result ?? response?.result;
+          if (result) {
+            reject(result);
+            return;
+          }
+          resolve();
+        },
         error: error => reject(error)
       });
     });

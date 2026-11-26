@@ -582,8 +582,12 @@ getDashboard() {
         const planId = Number(row?.Budget_Plan_Id || row?.Fk_Budget_Plan_Id || 0);
         const departmentId = Number(row?.Department_Id || this.selectedDepartmentId || 0);
         const usage = usageByPlan.get(`${departmentId}_${planId}`);
+        const { transferByExpense, ...usageTotals } = usage || {};
+        const expenseTransfer = transferByExpense?.get(this.getExpenseId(row));
 
-        return usage ? { ...row, ...usage } : row;
+        return usage
+          ? { ...row, ...usageTotals, Transfer_Amount: expenseTransfer ?? 0 }
+          : row;
       });
 
       complete();
@@ -607,9 +611,28 @@ getDashboard() {
       0
     );
 
+    const transferByExpense = new Map<number, number>();
+    list.forEach((item: any) => {
+      const expenseId = Number(item?.FK_Expense_Id ?? item?.Fk_Expense_Id ?? item?.Expense_Id ?? 0);
+      if (expenseId > 0) {
+        transferByExpense.set(
+          expenseId,
+          (transferByExpense.get(expenseId) || 0) + this.toDashboardNumber(item?.Transfer_Amount)
+        );
+      }
+    });
+
     return {
       Sum_Used: sum(['sum_use_amount']),
       Sum_Withdraw: sum(['sum_withdraw_amount']),
+      Total_Transfer_Amount: list.reduce(
+        (total: number, item: any) => total + this.toDashboardNumber(item?.Transfer_Amount),
+        0
+      ),
+      // GetBudgetPlanSumUse returns transfers per expense item. Preserve
+      // that mapping to prevent a transfer from being repeated on other
+      // expense rows within the same plan.
+      transferByExpense,
       Sum_Used_Tri1: sum(['Oct_Use', 'Nov_Use', 'Dec_Use']),
       Sum_Withdraw_Tri1: sum(['Oct_Withdraw', 'Nov_Withdraw', 'Dec_Withdraw']),
       Sum_Used_Tri2: sum(['Jan_Use', 'Feb_Use', 'Mar_Use']),
@@ -1578,7 +1601,8 @@ bindQuarterBarChart(data: any[]) {
       'Sum_Withdraw_Tri2',
       'Sum_Withdraw_Tri3',
       'Sum_Withdraw_Tri4',
-      'Sum_Withdraw'
+      'Sum_Withdraw',
+      'Total_Transfer_Amount'
     ]);
 
   const labels = [
@@ -1588,8 +1612,17 @@ bindQuarterBarChart(data: any[]) {
     'ไตรมาส 4'
   ];
 
+  // GetBudgetPlanSumUse exposes one transfer total per plan, rather than a
+  // transfer date. Show that adjustment in the current fiscal quarter and
+  // keep the remaining quarters at zero. A negative value remains below the
+  // baseline, correctly indicating an outgoing transfer.
+  const calendarMonth = new Date().getMonth() + 1;
+  const fiscalMonth = calendarMonth >= 10 ? calendarMonth - 9 : calendarMonth + 3;
+  const currentQuarterIndex = Math.ceil(fiscalMonth / 3) - 1;
+  const transferAmount = this.sumUniquePlanTransfer(data);
+
   // แผนรายไตรมาส
-  const planData = hasQuarterAmount
+  let planData = hasQuarterAmount
     ? [
         this.sum(data, 'Trimas1'),
         this.sum(data, 'Trimas2'),
@@ -1597,6 +1630,9 @@ bindQuarterBarChart(data: any[]) {
         this.sum(data, 'Trimas4')
       ]
     : [];
+  if (planData.length) {
+    planData[currentQuarterIndex] = Number(planData[currentQuarterIndex] || 0) + transferAmount;
+  }
 
   // เบิกจ่ายรายไตรมาส
   let withdrawData = hasQuarterAmount
@@ -1613,9 +1649,6 @@ bindQuarterBarChart(data: any[]) {
   // ปัจจุบัน และให้ไตรมาสปัจจุบันรับยอดคงเหลือจากยอดรวมโดยตรง
   if (withdrawData.length > 0) {
     const totalWithdraw = this.sum(data, 'Sum_Withdraw');
-    const calendarMonth = new Date().getMonth() + 1;
-    const fiscalMonth = calendarMonth >= 10 ? calendarMonth - 9 : calendarMonth + 3;
-    const currentQuarterIndex = Math.ceil(fiscalMonth / 3) - 1;
     const completedQuarterTotal = withdrawData
       .slice(0, currentQuarterIndex)
       .reduce((sum, amount) => sum + Number(amount || 0), 0);
@@ -1761,13 +1794,15 @@ private buildDepartmentBudgetModal(departmentId: any): void {
     return;
   }
 
-  const useAdjust = this.sum(source, 'Adjust') !== 0;
   const expenseMap = new Map<string, any>();
   source.forEach((row: any) => {
     const name = row?.Expense_Name || row?.Expense_List || row?.Expense_Type_Name || 'ไม่ระบุชื่อค่าใช้จ่าย';
-    const key = String(row?.Expense_Id || row?.Fk_Expense_Id || name);
-    const item = expenseMap.get(key) || { name, budget: 0, used: 0, withdraw: 0 };
-    item.budget += this.toDashboardNumber(useAdjust ? row?.Adjust : row?.Total_Plan);
+    const key = String(row?.Expense_Id || row?.FK_Expense_Id || row?.Fk_Expense_Id || name);
+    const item = expenseMap.get(key) || { name, budget: 0, transfer: 0, totalBudget: 0, used: 0, withdraw: 0 };
+    item.budget += this.toDashboardNumber(row?.Total_Plan);
+    item.transfer += this.toDashboardNumber(row?.Transfer_Amount);
+    item.totalBudget += this.toDashboardNumber(row?.Total_Plan) +
+      this.toDashboardNumber(row?.Transfer_Amount);
     item.used += this.toDashboardNumber(row?.Sum_Used);
     item.withdraw += this.toDashboardNumber(row?.Sum_Withdraw);
     expenseMap.set(key, item);
@@ -1775,11 +1810,24 @@ private buildDepartmentBudgetModal(departmentId: any): void {
 
   const items = Array.from(expenseMap.values()).map((item: any) => ({
     ...item,
-    usedPercent: item.budget > 0 ? item.used * 100 / item.budget : 0,
-    withdrawPercent: item.budget > 0 ? item.withdraw * 100 / item.budget : 0,
-    remaining: item.budget - item.withdraw
+    usedPercent: item.totalBudget > 0 ? item.used * 100 / item.totalBudget : 0,
+    withdrawPercent: item.totalBudget > 0 ? item.withdraw * 100 / item.totalBudget : 0,
+    remaining: item.totalBudget - item.withdraw
   }));
   const budget = items.reduce((sum: number, item: any) => sum + item.budget, 0);
+  // GetBudgetPlanSumUse is queried once per plan. Sum its API total once per
+  // unique plan so the summary card never repeats a transfer for every
+  // expense item belonging to that plan.
+  const transferByPlan = new Map<string, number>();
+  source.forEach((row: any) => {
+    const planId = String(row?.Budget_Plan_Id ?? row?.Fk_Budget_Plan_Id ?? '');
+    if (planId && !transferByPlan.has(planId)) {
+      transferByPlan.set(planId, this.toDashboardNumber(row?.Total_Transfer_Amount));
+    }
+  });
+  const transfer = Array.from(transferByPlan.values())
+    .reduce((sum: number, amount: number) => sum + amount, 0);
+  const totalBudget = items.reduce((sum: number, item: any) => sum + item.totalBudget, 0);
   const used = items.reduce((sum: number, item: any) => sum + item.used, 0);
   const withdraw = items.reduce((sum: number, item: any) => sum + item.withdraw, 0);
 
@@ -1788,12 +1836,14 @@ private buildDepartmentBudgetModal(departmentId: any): void {
     departmentName: source[0]?.Department_Name || source[0]?.Department_Short_Name || '-',
     items,
     budget,
+    transfer,
+    totalBudget,
     used,
     withdraw,
-    remaining: budget - withdraw,
-    usedPercent: budget > 0 ? used * 100 / budget : 0,
-    withdrawPercent: budget > 0 ? withdraw * 100 / budget : 0,
-    remainingPercent: budget > 0 ? (budget - withdraw) * 100 / budget : 0
+    remaining: totalBudget - withdraw,
+    usedPercent: totalBudget > 0 ? used * 100 / totalBudget : 0,
+    withdrawPercent: totalBudget > 0 ? withdraw * 100 / totalBudget : 0,
+    remainingPercent: totalBudget > 0 ? (totalBudget - withdraw) * 100 / totalBudget : 0
   };
   // Keep the loading state visible long enough to give clear click feedback.
   setTimeout(() => {
@@ -1814,6 +1864,8 @@ exportDepartmentBudgetExcel(): void {
     'ลำดับ': index + 1,
     'ชื่อค่าใช้จ่าย': item.name,
     'งบประมาณ (บาท)': item.budget,
+    'โอนเปลี่ยนแปลง (บาท)': item.transfer,
+    'งบประมาณทั้งสิ้น (บาท)': item.totalBudget,
     'ผลการใช้จ่าย (บาท)': item.used,
     '% ใช้จ่าย': item.usedPercent,
     'ผลการเบิกจ่าย (บาท)': item.withdraw,
@@ -1825,7 +1877,7 @@ exportDepartmentBudgetExcel(): void {
   // thousands separators and two decimal places in Excel.
   const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
   for (let row = sheetRange.s.r + 1; row <= sheetRange.e.r; row++) {
-    for (let column = 2; column <= 7; column++) {
+    for (let column = 2; column <= 9; column++) {
       const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })];
       if (cell?.t === 'n') {
         cell.z = '#,##0.00';
@@ -1833,8 +1885,8 @@ exportDepartmentBudgetExcel(): void {
     }
   }
   worksheet['!cols'] = [
-    { wch: 10 }, { wch: 48 }, { wch: 20 }, { wch: 22 },
-    { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 22 }
+    { wch: 10 }, { wch: 48 }, { wch: 20 }, { wch: 22 }, { wch: 22 },
+    { wch: 22 }, { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 22 }
   ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'รายละเอียดงบประมาณ');
@@ -1857,6 +1909,19 @@ exportDepartmentBudgetExcel(): void {
     return data.reduce((s: number, x: any) => s + Number(x[field] || 0), 0);
   }
 
+  private sumUniquePlanTransfer(data: any[]): number {
+    const transfersByPlan = new Map<string, number>();
+    (data || []).forEach((row: any) => {
+      const planId = String(row?.Budget_Plan_Id ?? row?.Fk_Budget_Plan_Id ?? '');
+      if (planId && !transfersByPlan.has(planId)) {
+        transfersByPlan.set(planId, this.toDashboardNumber(row?.Total_Transfer_Amount));
+      }
+    });
+
+    return Array.from(transfersByPlan.values())
+      .reduce((total: number, amount: number) => total + amount, 0);
+  }
+
   getBudgetTypeId(row: any): number {
     const value = row?.Budget_Type_Id ?? row?.Fk_Budget_Type ?? row?.Budget_Type ?? row?.BudgetType_Id;
     return Number(value || 0);
@@ -1867,6 +1932,7 @@ exportDepartmentBudgetExcel(): void {
       ?? row?.Fk_Expense_List
       ?? row?.Expense_List_Id
       ?? row?.FK_Expense_List
+      ?? row?.FK_Expense_Id
       ?? row?.Fk_Expense_Id;
     return Number(value || 0);
   }

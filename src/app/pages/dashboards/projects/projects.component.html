@@ -8,10 +8,10 @@
             (click)="setDashboardTab('overview')">
             <i class="ri-dashboard-line"></i><span>ภาพรวม</span>
         </button>
-        <!-- <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'projects'"
+        <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'projects'"
             (click)="setDashboardTab('projects')">
             <i class="ri-folder-3-line"></i><span>โครงการ</span>
-        </button> -->
+        </button>
         <!-- <button type="button" class="dashboard-tab" [class.active]="activeDashboardTab === 'carryover'"
             (click)="setDashboardTab('carryover')">
             <i class="ri-calendar-check-line"></i><span>เงินกันเบิกเหลื่อมปี</span>
@@ -549,6 +549,8 @@
             <div class="department-summary-grid">
                 <div class="department-summary-card budget"><span>งบประมาณรวม</span><strong>{{
                         departmentBudgetModal.budget | number:'1.2-2' }}</strong><small>บาท</small></div>
+                <div class="department-summary-card transfer"><span>โอนเปลี่ยนแปลง</span><strong>{{
+                        departmentBudgetModal.transfer | number:'1.2-2' }}</strong><small>บาท</small></div>
                 <div class="department-summary-card used"><span>ผลการใช้จ่าย</span><strong>{{
                         departmentBudgetModal.used | number:'1.2-2' }}</strong><small>บาท <b>{{
                             departmentBudgetModal.usedPercent | number:'1.2-2' }}%</b></small></div>
@@ -568,13 +570,15 @@
             <div class="table-responsive department-detail-table">
                 <table class="table align-middle mb-0">
                     <thead><tr><th class="text-center">ลำดับ</th><th>ชื่อค่าใช้จ่าย</th>
-                        <th class="text-end">งบประมาณ (บาท)</th><th class="text-end">ผลการใช้จ่าย (บาท)</th>
+                        <th class="text-end">งบประมาณ (บาท)</th><th class="text-end">โอนเปลี่ยนแปลง (บาท)</th><th class="text-end">งบประมาณทั้งสิ้น (บาท)</th><th class="text-end">ผลการใช้จ่าย (บาท)</th>
                         <th>% ใช้จ่าย</th><th class="text-end">ผลการเบิกจ่าย (บาท)</th>
                         <th>% เบิกจ่าย</th><th class="text-end">คงเหลือเบิกจ่าย (บาท)</th></tr></thead>
                     <tbody>
                         <tr *ngFor="let item of departmentBudgetModal.items; let i = index">
                             <td class="text-center">{{ i + 1 }}</td><td>{{ item.name }}</td>
                             <td class="text-end">{{ item.budget | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ item.transfer | number:'1.2-2' }}</td>
+                            <td class="text-end">{{ item.totalBudget | number:'1.2-2' }}</td>
                             <td class="text-end">{{ item.used | number:'1.2-2' }}</td>
                             <td><div style="color: black;" class="modal-percent green"><span [style.width.%]="item.usedPercent"></span><b>{{ item.usedPercent | number:'1.2-2' }}%</b></div></td>
                             <td class="text-end">{{ item.withdraw | number:'1.2-2' }}</td>
@@ -584,6 +588,8 @@
                     </tbody>
                     <tfoot><tr><th colspan="2" class="text-center">รวม</th>
                         <th class="text-end">{{ departmentBudgetModal.budget | number:'1.2-2' }}</th>
+                        <th class="text-end">{{ departmentBudgetModal.transfer | number:'1.2-2' }}</th>
+                        <th class="text-end">{{ departmentBudgetModal.totalBudget | number:'1.2-2' }}</th>
                         <th class="text-end">{{ departmentBudgetModal.used | number:'1.2-2' }}</th>
                         <th>{{ departmentBudgetModal.usedPercent | number:'1.2-2' }}%</th>
                         <th class="text-end">{{ departmentBudgetModal.withdraw | number:'1.2-2' }}</th>

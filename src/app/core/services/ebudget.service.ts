@@ -100,7 +100,7 @@ export class EbudgetService {
         }
 
         return this.http.get<any>(
-            'https://bfast.pacc.go.th/CLS_ERP_API_DEMO/Finance_Api/Get_Data_Budget_Plan_Sum_Use_By_BgYear_Dept',
+            'https://bfast.pacc.go.th/CLS_ERP_API/Finance_Api/Get_Data_Budget_Plan_Sum_Use_By_BgYear_Dept',
             { params }
         );
     }
